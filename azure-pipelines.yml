@@ -447,49 +447,27 @@ stages:
               export M2_HOME=$(MAVEN_HOME)
               export PATH=$(MAVEN_HOME)/bin:$PATH
               
-              # Export credentials for dependency resolution if needed
-              export anypointClientId=$(anypointClientId)
-              export anypointClientSecret=$(anypointClientSecret)
-              
               echo "=================================================="
-              echo " CloudHub Deployment"
+              echo " CloudHub Deployment (Connected App)"
               echo "=================================================="
               echo "Runtime: 4.9.0"
               echo "Application: azure-project-v53"
               echo "Environment: Sandbox"
               echo ""
               
-              # Verify environment
-              echo "☕ Java:"
-              java -version 2>&1 | head -1
-              echo ""
-              echo "📦 Maven:"
-              mvn --version | head -1
-              echo ""
-              
-              # Verify POM exists
-              if [ ! -f pom.xml ]; then
-                echo "❌ ERROR: pom.xml not found in root directory"
-                exit 1
-              fi
-              
-              echo "✅ Project files verified"
-              echo ""
-              echo "📦 Building and deploying..."
-              echo ""
-              
-              # ✅ Package + Deploy in one command from Source Root
-              mvn clean package mule:deploy \
+              # Run deploy from the root directory
+              # NOTE: Using -Pcloudhub2 to match your POM configuration
+              mvn clean deploy \
                 -Pcloudhub2 \
                 -Dmule.version=4.9.0 \
-                -Danypoint.bearerToken=$(ANYPOINT_BEARER_TOKEN) \
+                -DanypointClientId=$(anypointClientId) \
+                -DanypointClientSecret=$(anypointClientSecret) \
                 -Dmule.env=dev \
                 -Dsecure.key=mule \
                 -DskipTests \
-                -Dmaven.repo.local=$(MAVEN_CACHE_FOLDER) \
                 -s ~/.m2/settings.xml \
                 -e
-                
+              
               if [ $? -eq 0 ]; then
                 echo ""
                 echo "=================================================="
@@ -508,9 +486,9 @@ stages:
                 exit 1
               fi
               
-            displayName: 'Build and Deploy to CloudHub'
+            displayName: 'Deploy to CloudHub (Connected App)'
             env:
               M2_HOME: $(MAVEN_HOME)
-              ANYPOINT_BEARER_TOKEN: $(ANYPOINT_BEARER_TOKEN)
+              # Mapping variables to environment
               anypointClientId: $(anypointClientId)
               anypointClientSecret: $(anypointClientSecret)
