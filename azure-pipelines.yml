@@ -457,7 +457,7 @@ stages:
               
               # Run deploy from the root directory
               # NOTE: Using -Pcloudhub2 to match your POM configuration
-              mvn clean deploy \
+              mvn clean install \
                 -Pcloudhub2 \
                 -Dmule.version=4.9.0 \
                 -DanypointClientId=$(anypointClientId) \
@@ -465,6 +465,15 @@ stages:
                 -Dmule.env=dev \
                 -Dsecure.key=mule \
                 -DskipTests \
+                -s ~/.m2/settings.xml \
+                -e
+              
+              mvn mule:deploy \
+                -Pcloudhub2 \
+                -DanypointClientId=$(anypointClientId) \
+                -DanypointClientSecret=$(anypointClientSecret) \
+                -Dmule.env=dev \
+                -Dsecure.key=mule \
                 -s ~/.m2/settings.xml \
                 -e
               
@@ -476,7 +485,6 @@ stages:
                 echo ""
                 echo "Application: azure-project-v53"
                 echo "Environment: Sandbox"
-                echo "Region: us-east-2"
                 echo ""
                 echo "🌐 Check status at:"
                 echo "   https://anypoint.mulesoft.com/cloudhub"
@@ -486,9 +494,8 @@ stages:
                 exit 1
               fi
               
-            displayName: 'Deploy to CloudHub (Connected App)'
+            displayName: 'Deploy to CloudHub 2.0 (Connected App)'
             env:
               M2_HOME: $(MAVEN_HOME)
-              # Mapping variables to environment
               anypointClientId: $(anypointClientId)
               anypointClientSecret: $(anypointClientSecret)
