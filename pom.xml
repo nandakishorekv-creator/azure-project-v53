@@ -17,12 +17,6 @@
     <anypoint.environment>Sandbox</anypoint.environment>
     <secure.key>dummy</secure.key>
     <mule.env>dev</mule.env>
-    <maven.deploy.skip>true</maven.deploy.skip>
-    <skipExchangePublish>true</skipExchangePublish>
-    <cloudhub.application.name>azure-project-v53</cloudhub.application.name>
-    <cloudhub.environment>Sandbox</cloudhub.environment>
-    <cloudhub2.target>Cloudhub-US-East-2</cloudhub2.target>
-    <cloudhub2.region>us-east-2</cloudhub2.region>
   </properties>
   
   <build>
@@ -115,55 +109,52 @@
     </pluginRepository>
   </pluginRepositories>
   
-  <profiles>
-    <profile>
-      <id>cloudhub2</id>
-      <build>
-        <plugins>
-          <plugin>
-            <groupId>org.mule.tools.maven</groupId>
-            <artifactId>mule-maven-plugin</artifactId>
-            <version>${mule.maven.plugin.version}</version>
-            <extensions>true</extensions>
-            <executions>
-              <execution>
-                <id>cloudhub2-deploy</id>
-                <phase>deploy</phase>
-                <goals>
-                  <goal>deploy</goal>
-                </goals>
-                <configuration>
-                  <classifier>mule-application</classifier>
-                  <cloudHub2Deployment>
-                    <uri>https://anypoint.mulesoft.com</uri>
-                    <provider>MC</provider>
-                    <environment>${cloudhub.environment}</environment>
-                    <target>${cloudhub2.target}</target>
-                    <muleVersion>${app.runtime}</muleVersion>
-                    <applicationName>${cloudhub.application.name}</applicationName>
-                    <connectedAppClientId>${anypointClientId}</connectedAppClientId>
-                    <connectedAppClientSecret>${anypointClientSecret}</connectedAppClientSecret>
-                    <connectedAppGrantType>client_credentials</connectedAppGrantType>
-                    <replicas>1</replicas>
-                    <vCores>0.1</vCores>
-                    <deploymentSettings>
-                      <http>
-                        <inbound>
-                          <publicUrl>${cloudhub.application.name}.${cloudhub2.region}.cloudhub.io</publicUrl>
-                        </inbound>
-                      </http>
-                    </deploymentSettings>
-                    <properties>
-                      <mule.env>${mule.env}</mule.env>
-                      <secure.key>${secure.key}</secure.key>
-                    </properties>
-                  </cloudHub2Deployment>
-                </configuration>
-              </execution>
-            </executions>
-          </plugin>
-        </plugins>
-      </build>
-    </profile>
-  </profiles>
+<profiles>
+  <profile>
+    <id>cloudhub2</id>
+    <build>
+      <plugins>
+        <plugin>
+          <groupId>org.mule.tools.maven</groupId>
+          <artifactId>mule-maven-plugin</artifactId>
+          <version>${mule.maven.plugin.version}</version>
+          <extensions>true</extensions>
+          <executions>
+            <execution>
+              <id>cloudhub2-deploy</id>
+              <phase>deploy</phase>
+              <goals>
+                <goal>deploy</goal>
+              </goals>
+              <configuration>
+                <classifier>mule-application</classifier>
+                <cloudHub2Deployment>
+                  <uri>https://anypoint.mulesoft.com</uri>
+                  <provider>MC</provider>
+                  <environment>Sandbox</environment>
+                  <target>Cloudhub-US-East-2</target>
+                  <muleVersion>${app.runtime}</muleVersion>
+                  <applicationName>azure-project-v53</applicationName>
+
+                  <!-- Connected App -->
+                  <connectedAppClientId>${anypointClientId}</connectedAppClientId>
+                  <connectedAppClientSecret>${anypointClientSecret}</connectedAppClientSecret>
+                  <connectedAppGrantType>client_credentials</connectedAppGrantType>
+
+                  <replicas>1</replicas>
+                  <vCores>0.1</vCores>
+
+                  <properties>
+                    <mule.env>${mule.env}</mule.env>
+                    <secure.key>${secure.key}</secure.key>
+                  </properties>
+                </cloudHub2Deployment>
+              </configuration>
+            </execution>
+          </executions>
+        </plugin>
+      </plugins>
+    </build>
+  </profile>
+</profiles>
 </project>
