@@ -605,7 +605,7 @@ stages:
               echo "Runtime: 4.9.0"
               
               # Run deploy from the root directory
-              mvn clean deploy \
+              mvn deploy \
                 -Pcloudhub \
                 -Dmule.version=4.9.0 \
                 -Danypoint.bearerToken=$(ANYPOINT_BEARER_TOKEN) \
