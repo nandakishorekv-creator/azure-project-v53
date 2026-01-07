@@ -27,17 +27,18 @@
 
   <flow name="get-opportunities-by-id-flow" doc:name="get-opportunities-by-id-flow" doc:id="get-opportunities-by-id-flow">
     <logger level="INFO" message="#['Retrieving Opportunity with ID: ' ++ attributes.uriParams.id]" doc:name="Logger" doc:id="logger-get-opportunities-001"></logger>
+    
     <salesforce:retrieve type="Opportunity" config-ref="Salesforce_Config" doc:name="Retrieve Opportunity" doc:id="salesforce-retrieve-opportunity-001">
-      <salesforce:ids></salesforce:ids>
-      <salesforce:fields doc:id="doc-5d733186">
-        <salesforce:field value="Id" doc:id="doc-f870655d"></salesforce:field>
-        <salesforce:field value="Name" doc:id="doc-8283d29a"></salesforce:field>
-        <salesforce:field value="Amount" doc:id="doc-1adf4f89"></salesforce:field>
-        <salesforce:field value="StageName" doc:id="doc-08c5a56e"></salesforce:field>
-        <salesforce:field value="CloseDate" doc:id="doc-f9a309c2"></salesforce:field>
-        <salesforce:field value="AccountId" doc:id="doc-295f6627"></salesforce:field>
-      </salesforce:fields>
+      <salesforce:retrieve-request>
+        <![CDATA[#[
+          {
+            ids: [attributes.uriParams.id],
+            fields: ["Id", "Name", "Amount", "StageName", "CloseDate", "AccountId"]
+          }
+        ]]]>
+      </salesforce:retrieve-request>
     </salesforce:retrieve>
+
     <ee:transform doc:name="Transform Response" doc:id="transform-get-opportunities-001">
       <ee:message doc:id="doc-5e11c88b">
         <ee:set-payload doc:id="doc-7de1957f" resource="dw/transform-response-10.dwl"></ee:set-payload>
