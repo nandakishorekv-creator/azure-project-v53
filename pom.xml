@@ -35,42 +35,22 @@
     <cloudhub.environment>Sandbox</cloudhub.environment>
     <cloudhub2.target>Cloudhub-US-East-2</cloudhub2.target>
     <cloudhub2.region>us-east-2</cloudhub2.region>
-    <cloudhub.worker.type>MICRO</cloudhub.worker.type>
-    <cloudhub.workers>1</cloudhub.workers>
   </properties>
   
   <!-- ===================== -->
   <!-- BUILD -->
   <!-- ===================== -->
   <build>
-    <!-- REQUIRED for mule-application packaging -->
-    <extensions>
-      <extension>
-        <groupId>org.mule.tools.maven</groupId>
-        <artifactId>mule-maven-plugin</artifactId>
-        <version>${mule.maven.plugin.version}</version>
-      </extension>
-    </extensions>
-    
     <plugins>
       <!-- ✅ Mule Maven Plugin (Base Configuration) -->
       <plugin>
         <groupId>org.mule.tools.maven</groupId>
         <artifactId>mule-maven-plugin</artifactId>
         <version>${mule.maven.plugin.version}</version>
+        <extensions>true</extensions>
         <configuration>
-          <muleVersion>${app.runtime}</muleVersion>
           <classifier>mule-application</classifier>
         </configuration>
-        <executions>
-          <execution>
-            <id>package</id>
-            <phase>package</phase>
-            <goals>
-              <goal>package</goal>
-            </goals>
-          </execution>
-        </executions>
       </plugin>
       
       <!-- ✅ Skip default Maven deploy plugin globally -->
@@ -155,46 +135,19 @@
     <!-- ============================================= -->
     <profile>
       <id>cloudhub2</id>
-      <activation>
-        <activeByDefault>false</activeByDefault>
-      </activation>
       <build>
         <plugins>
-          <!-- ✅ Explicitly skip Maven deploy plugin in profile -->
-          <plugin>
-            <groupId>org.apache.maven.plugins</groupId>
-            <artifactId>maven-deploy-plugin</artifactId>
-            <version>3.1.1</version>
-            <configuration>
-              <skip>true</skip>
-            </configuration>
-          </plugin>
-          
-          <!-- ✅ Disable Exchange plugin -->
-          <plugin>
-            <groupId>org.mule.tools.maven</groupId>
-            <artifactId>exchange-mule-maven-plugin</artifactId>
-            <version>0.1.4</version>
-            <executions>
-              <execution>
-                <id>default-exchange-pre-deploy</id>
-                <phase>none</phase>
-              </execution>
-              <execution>
-                <id>default-exchange-deploy</id>
-                <phase>none</phase>
-              </execution>
-            </executions>
-          </plugin>
-
-          <!-- ============================================= -->
-          <!-- ✅ CloudHub 2.0 Deployment Configuration -->
-          <!-- ============================================= -->
+          <!-- ✅ Mule Maven Plugin - CloudHub 2.0 Deployment -->
           <plugin>
             <groupId>org.mule.tools.maven</groupId>
             <artifactId>mule-maven-plugin</artifactId>
             <version>${mule.maven.plugin.version}</version>
+            <extensions>true</extensions>
             <configuration>
+              <classifier>mule-application</classifier>
+              <!-- ============================================= -->
+              <!-- ✅ CloudHub 2.0 Deployment Configuration -->
+              <!-- ============================================= -->
               <cloudHub2Deployment>
                 <!-- Anypoint Platform Configuration -->
                 <uri>https://anypoint.mulesoft.com</uri>
@@ -215,7 +168,7 @@
                 <replicas>1</replicas>
                 <vCores>0.1</vCores>
                 
-                <!-- ✅ Deployment Settings (Optional) -->
+                <!-- ✅ Deployment Settings -->
                 <deploymentSettings>
                   <http>
                     <inbound>
