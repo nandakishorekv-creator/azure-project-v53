@@ -599,29 +599,49 @@ stages:
               artifact: 'drop'
               path: $(Pipeline.Workspace)/drop
 
-# =========================================
-          # Deploy to CloudHub
+          # =========================================
+          # Deploy to CloudHub (NO Exchange Publishing)
           # =========================================
           - script: |
               export M2_HOME=$(MAVEN_HOME)
               export PATH=$(MAVEN_HOME)/bin:$PATH
-
-              echo "=================================================="
-              echo " CloudHub Deployment (Connected App)"
-              echo "=================================================="
-
-              echo "Using bearer token auth"
-              echo "Runtime: 4.9.0"
               
-              # Run deploy from the root directory
-              mvn deploy \
+              # ✅ Export credentials for dependency resolution
+              export anypointClientId=$(anypointClientId)
+              export anypointClientSecret=$(anypointClientSecret)
+          
+              echo "=================================================="
+              echo " CloudHub Deployment (Exchange Skip)"
+              echo "=================================================="
+              echo "Runtime: 4.9.0"
+              echo "Application: azure-project-v53"
+              echo ""
+              
+              # Navigate to artifact
+              cd $(Pipeline.Workspace)/drop
+              
+              # ✅ Use mule:deploy goal directly (skips Exchange plugin)
+              mvn mule:deploy \
                 -Pcloudhub \
                 -Dmule.version=4.9.0 \
                 -Danypoint.bearerToken=$(ANYPOINT_BEARER_TOKEN) \
                 -Dmule.env=dev \
                 -Dsecure.key=mule \
-                -DanypointClientId=$(anypointClientId) \
-                -DanypointClientSecret=$(anypointClientSecret) \
-                -DskipTests \
                 -s ~/.m2/settings.xml \
                 -e
+                
+              if [ $? -eq 0 ]; then
+                echo ""
+                echo "✅ Deployment successful!"
+              else
+                echo ""
+                echo "❌ Deployment failed"
+                exit 1
+              fi
+              
+            displayName: 'Deploy to CloudHub (No Exchange)'
+            env:
+              M2_HOME: $(MAVEN_HOME)
+              ANYPOINT_BEARER_TOKEN: $(ANYPOINT_BEARER_TOKEN)
+              anypointClientId: $(anypointClientId)
+              anypointClientSecret: $(anypointClientSecret)
