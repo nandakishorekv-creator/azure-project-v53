@@ -134,28 +134,29 @@
   <!-- ===================== -->
 <!-- ✅ PROFILES (CLOUDHUB DEPLOYMENT - EXCHANGE DISABLED) -->
 <!-- ===================== -->
+<!-- ===================== -->
+<!-- ✅ PROFILES (CLOUDHUB 2.0 DEPLOYMENT) -->
+<!-- ===================== -->
 <profiles>
   <profile>
-    <id>cloudhub</id>
+    <id>cloudhub2</id>
     <activation>
       <activeByDefault>false</activeByDefault>
     </activation>
     <build>
       <plugins>
         <!-- ============================================= -->
-        <!-- ✅ DISABLE EXCHANGE PLUGIN (FIX FOR AZURE)   -->
+        <!-- ✅ DISABLE EXCHANGE PLUGIN                   -->
         <!-- ============================================= -->
         <plugin>
           <groupId>org.mule.tools.maven</groupId>
           <artifactId>exchange-mule-maven-plugin</artifactId>
           <version>0.1.4</version>
           <executions>
-            <!-- Disable exchange-pre-deploy -->
             <execution>
               <id>default-exchange-pre-deploy</id>
               <phase>none</phase>
             </execution>
-            <!-- Disable exchange-deploy -->
             <execution>
               <id>default-exchange-deploy</id>
               <phase>none</phase>
@@ -164,37 +165,44 @@
         </plugin>
 
         <!-- ============================================= -->
-        <!-- ✅ CLOUDHUB DEPLOYMENT                       -->
+        <!-- ✅ CLOUDHUB 2.0 DEPLOYMENT                   -->
         <!-- ============================================= -->
         <plugin>
           <groupId>org.mule.tools.maven</groupId>
           <artifactId>mule-maven-plugin</artifactId>
           <version>${mule.maven.plugin.version}</version>
           <configuration>
-            <cloudHubDeployment>
+            <cloudHub2Deployment>
               <uri>https://anypoint.mulesoft.com</uri>
+              <provider>MC</provider>
+              <environment>${cloudhub.environment}</environment>
+              <target>${cloudhub2.target}</target>
               <muleVersion>${app.runtime}</muleVersion>
               <applicationName>${cloudhub.application.name}</applicationName>
-              <environment>${cloudhub.environment}</environment>
-              <region>${cloudhub.region}</region>
-              <workerType>${cloudhub.worker.type}</workerType>
-              <workers>${cloudhub.workers}</workers>
-              <objectStoreV2>true</objectStoreV2>
               
-              <!-- ✅ Bearer Token Authentication (Azure Pipeline) -->
-              <authToken>${anypoint.bearerToken}</authToken>
+              <!-- ✅ Connected App Authentication -->
+              <connectedAppClientId>${anypointClientId}</connectedAppClientId>
+              <connectedAppClientSecret>${anypointClientSecret}</connectedAppClientSecret>
+              <connectedAppGrantType>client_credentials</connectedAppGrantType>
+              
+              <!-- ✅ Deployment Settings -->
+              <replicas>1</replicas>
+              <vCores>0.1</vCores>
               
               <!-- ✅ Deployment Properties -->
+              <deploymentSettings>
+                <http>
+                  <inbound>
+                    <publicUrl>${cloudhub.application.name}.${cloudhub2.region}.cloudhub.io</publicUrl>
+                  </inbound>
+                </http>
+              </deploymentSettings>
+              
               <properties>
                 <mule.env>${mule.env}</mule.env>
                 <secure.key>${secure.key}</secure.key>
-                <anypoint.platform.client_id>${anypointClientId}</anypoint.platform.client_id>
-                <anypoint.platform.client_secret>${anypointClientSecret}</anypoint.platform.client_secret>
               </properties>
-              
-              <!-- ✅ OPTIONAL: Skip deployment verification for faster pipelines -->
-              <skipDeploymentVerification>false</skipDeploymentVerification>
-            </cloudHubDeployment>
+            </cloudHub2Deployment>
           </configuration>
           <executions>
             <execution>
