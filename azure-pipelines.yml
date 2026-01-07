@@ -211,37 +211,37 @@ stages:
             env:
               M2_HOME: $(MAVEN_HOME)
 
-          # =============================================
-          # STEP 6: Cache Maven Dependencies
-          # =============================================
-          - task: Cache@2
-            displayName: 'Cache Maven Dependencies'
-            inputs:
-              key: 'maven | "$(Agent.OS)" | **/pom.xml'
-              restoreKeys: |
-                maven | "$(Agent.OS)"
-                maven
-              path: $(MAVEN_CACHE_FOLDER)
+          # # =============================================
+          # # STEP 6: Cache Maven Dependencies
+          # # =============================================
+          # - task: Cache@2
+          #   displayName: 'Cache Maven Dependencies'
+          #   inputs:
+          #     key: 'maven | "$(Agent.OS)" | **/pom.xml'
+          #     restoreKeys: |
+          #       maven | "$(Agent.OS)"
+          #       maven
+          #     path: $(MAVEN_CACHE_FOLDER)
 
-          # =============================================
-          # STEP 7: Install Anypoint CLI
-          # =============================================
-          - script: |
-              echo "=================================================="
-              echo "  Installing Anypoint CLI"
-              echo "=================================================="
+          # # =============================================
+          # # STEP 7: Install Anypoint CLI
+          # # =============================================
+          # - script: |
+          #     echo "=================================================="
+          #     echo "  Installing Anypoint CLI"
+          #     echo "=================================================="
               
-              npm install -g anypoint-cli@latest
+          #     npm install -g anypoint-cli@latest
               
-              if [ $? -eq 0 ]; then
-                echo "✅ Anypoint CLI installed successfully"
-                anypoint-cli --version
-              else
-                echo "❌ ERROR: Failed to install Anypoint CLI"
-                exit 1
-              fi
+          #     if [ $? -eq 0 ]; then
+          #       echo "✅ Anypoint CLI installed successfully"
+          #       anypoint-cli --version
+          #     else
+          #       echo "❌ ERROR: Failed to install Anypoint CLI"
+          #       exit 1
+          #     fi
               
-            displayName: 'Install Anypoint CLI'
+          #   displayName: 'Install Anypoint CLI'
 
           # =============================================
           # STEP 9: Maven Validate
