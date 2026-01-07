@@ -164,6 +164,7 @@
             <artifactId>mule-maven-plugin</artifactId>
             <version>${mule.maven.plugin.version}</version>
             <extensions>true</extensions>
+            <!-- ✅ CRITICAL: Configuration must be at plugin level, NOT in execution -->
             <configuration>
               <classifier>mule-application</classifier>
               <!-- ============================================= -->
