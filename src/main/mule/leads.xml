@@ -25,20 +25,20 @@
     <error-handler ref="globalErrorHandler"></error-handler>
   </flow>
 
-  <flow name="get-leads-by-id-flow" doc:name="get-leads-by-id-flow" doc:id="get-leads-by-id-flow">
+ <flow name="get-leads-by-id-flow" doc:name="get-leads-by-id-flow" doc:id="get-leads-by-id-flow">
     <logger level="INFO" message="#['Retrieving Lead with ID: ' ++ attributes.uriParams.id]" doc:name="Logger" doc:id="logger-get-leads-001"></logger>
+    
     <salesforce:retrieve type="Lead" config-ref="Salesforce_Config" doc:name="Retrieve Lead" doc:id="salesforce-retrieve-lead-001">
-      <salesforce:ids></salesforce:ids>
-      <salesforce:fields doc:id="doc-d835c1ae">
-        <salesforce:field value="Id" doc:id="doc-38ee3080"></salesforce:field>
-        <salesforce:field value="FirstName" doc:id="doc-044cc670"></salesforce:field>
-        <salesforce:field value="LastName" doc:id="doc-f9822788"></salesforce:field>
-        <salesforce:field value="Company" doc:id="doc-2fb4a0c2"></salesforce:field>
-        <salesforce:field value="Email" doc:id="doc-e67e3499"></salesforce:field>
-        <salesforce:field value="Phone" doc:id="doc-dccc5904"></salesforce:field>
-        <salesforce:field value="Status" doc:id="doc-df9e8f11"></salesforce:field>
-      </salesforce:fields>
+      <salesforce:retrieve-request>
+        <![CDATA[#[
+          {
+            ids: [attributes.uriParams.id],
+            fields: ["Id", "FirstName", "LastName", "Company", "Email", "Phone", "Status"]
+          }
+        ]]]>
+      </salesforce:retrieve-request>
     </salesforce:retrieve>
+
     <ee:transform doc:name="Transform Response" doc:id="transform-get-leads-001">
       <ee:message doc:id="doc-b0c658bd">
         <ee:set-payload doc:id="doc-89821e00" resource="dw/transform-response-3.dwl"></ee:set-payload>
