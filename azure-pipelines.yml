@@ -590,24 +590,29 @@ stages:
               artifact: 'drop'
               path: $(Pipeline.Workspace)/drop
 
-          # =========================================
+# =========================================
           # Deploy to CloudHub
           # =========================================
-         - script: |
-            export M2_HOME=$(MAVEN_HOME)
-            export PATH=$(MAVEN_HOME)/bin:$PATH
-        
-            echo "=================================================="
-            echo " CloudHub Deployment (Connected App via settings.xml)"
-            echo "=================================================="
-        
-            mvn deploy \
-              -Dmule.version=4.9.0 \
-              -Dcloudhub.environment=Sandbox \
-              -Dcloudhub.region=us-east-2 \
-              -Dcloudhub.workers=1 \
-              -Dcloudhub.workerType=MICRO \
-              -DskipTests \
-              -s ~/.m2/settings.xml \
-              -e
-          displayName: 'Deploy to CloudHub (Connected App)'
+          - script: |
+              export M2_HOME=$(MAVEN_HOME)
+              export PATH=$(MAVEN_HOME)/bin:$PATH
+
+              echo "=================================================="
+              echo " CloudHub Deployment (Connected App)"
+              echo "=================================================="
+
+              echo "Using bearer token auth"
+              echo "Runtime: 4.9.0"
+              
+              # Run deploy from the root directory
+              mvn clean deploy \
+                -Pcloudhub \
+                -Dmule.version=4.9.0 \
+                -Danypoint.bearerToken=$(ANYPOINT_BEARER_TOKEN) \
+                -DskipTests \
+                -s ~/.m2/settings.xml \
+                -e
+            displayName: 'Deploy to CloudHub (Bearer Token)'
+            env:
+              M2_HOME: $(MAVEN_HOME)
+              ANYPOINT_BEARER_TOKEN: $(ANYPOINT_BEARER_TOKEN)
