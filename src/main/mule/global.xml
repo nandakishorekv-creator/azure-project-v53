@@ -8,22 +8,32 @@
       xmlns:tls="http://www.mulesoft.org/schema/mule/tls"
       xmlns:salesforce="http://www.mulesoft.org/schema/mule/salesforce"
       xmlns:apikit="http://www.mulesoft.org/schema/mule/apikit"
-      xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+      xsi:schemaLocation="
+        http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
         http://www.mulesoft.org/schema/mule/secure-properties http://www.mulesoft.org/schema/mule/secure-properties/current/mule-secure-properties.xsd
         http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
-        http://www.mulesoft.org/schema/mule/salesforce http://www.mulesoft.org/schema/mule/salesforce/current/mule-salesforce.xsd">
-  <configuration defaultErrorHandler-ref="globalErrorHandler"></configuration>
-  <apikit:config name="azure-project-v52-apikit-config" raml="api.raml" outboundHeadersMapName="outboundHeaders" httpStatusVarName="httpStatus" doc:name="APIKit Router Config"></apikit:config>
-  <configuration-properties doc:name="Configuration properties" file="properties/common-properties.yaml"></configuration-properties>
-  <secure-properties:config name="Secure_Properties_Config" file="properties/secure-${mule.env}.yaml" key="${encryption.key}" doc:name="Secure Properties Config"></secure-properties:config>
+        http://www.mulesoft.org/schema/mule/salesforce http://www.mulesoft.org/schema/mule/salesforce/current/mule-salesforce.xsd
+        http://www.mulesoft.org/schema/mule/apikit http://www.mulesoft.org/schema/mule/apikit/current/mule-apikit.xsd
+        http://www.mulesoft.org/schema/mule/tls http://www.mulesoft.org/schema/mule/tls/current/mule-tls.xsd">
+
+  <configuration defaultErrorHandler-ref="globalErrorHandler" />
+  
+  <apikit:config name="azure-project-v52-apikit-config" raml="api.raml" outboundHeadersMapName="outboundHeaders" httpStatusVarName="httpStatus" doc:name="APIKit Router Config" />
+  
+  <configuration-properties doc:name="Configuration properties" file="properties/common-properties.yaml" />
+  
+  <secure-properties:config name="Secure_Properties_Config" file="properties/secure-${mule.env}.yaml" key="${encryption.key}" doc:name="Secure Properties Config" />
+  
   <http:listener-config name="HTTPS_Listener_config" doc:name="HTTPS Listener config" doc:id="https-listener-config-001">
-    <http:listener-connection host="${http.host}" port="${http.port}" protocol="${http.protocol}" tlsContext="TLS_Context" doc:id="doc-07780669" readTimeout="${http.timeout}"></http:listener-connection>
+    <http:listener-connection host="${http.host}" port="${http.port}" protocol="${http.protocol}" tlsContext="TLS_Context" doc:id="doc-07780669" readTimeout="${http.timeout}" />
   </http:listener-config>
+  
   <tls:context name="TLS_Context" doc:name="TLS Context" doc:id="tls-context-001">
-    <tls:key-store path="${tls.keystore.path}" password="${secure::tls.keystore.password}" alias="${tls.keystore.alias}" keyPassword="${secure::tls.key.password}" doc:id="doc-781d5a5e"></tls:key-store>
+    <tls:key-store path="${tls.keystore.path}" password="${secure::tls.keystore.password}" alias="${tls.keystore.alias}" keyPassword="${secure::tls.key.password}" doc:id="doc-781d5a5e" />
   </tls:context>
+  
   <salesforce:sfdc-config name="Salesforce_Config" doc:name="Salesforce Config" doc:id="salesforce-config-001">
-    <salesforce:basic-connection username="${secure::salesforce.username}" password="${secure::salesforce.password}" securityToken="${secure::salesforce.securityToken}" url="${salesforce.url}" doc:id="doc-ccf9fdd8"></salesforce:basic-connection>
+    <salesforce:basic-connection username="${secure::salesforce.username}" password="${secure::salesforce.password}" securityToken="${secure::salesforce.securityToken}" url="${salesforce.url}" doc:id="doc-ccf9fdd8" />
   </salesforce:sfdc-config>
 
 </mule>
