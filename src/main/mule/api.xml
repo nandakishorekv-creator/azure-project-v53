@@ -54,7 +54,7 @@
     <flow-ref doc:name="delete-opportunities-by-id-flow" doc:id="eb84b71c-f055-61e6-928c-5d62c35c1048" name="delete-opportunities-by-id-flow"></flow-ref>
   </flow>
 
-  <flow name="get:/readiness:azure-project-v52-apikit-config" doc:name="get:/readiness:azure-project-v52-apikit-config" doc:id="0a09bd8b-a645-9e0b-f66b-086d08c01a8e">
+  <flow name="get:\readiness:azure-project-v52-apikit-config" doc:name="get:\readiness:azure-project-v52-apikit-config" doc:id="0a09bd8b-a645-9e0b-f66b-086d08c01a8e">
     <flow-ref doc:name="readiness-check-subflow" doc:id="6a3fd328-6f47-cb24-0896-d32e1a709985" name="readiness-check-subflow"></flow-ref>
   </flow>
 
