@@ -515,7 +515,7 @@ stages:
       - job: DeployToCloudHub
         displayName: 'Deploy to CloudHub Sandbox'
         steps:
-          # =========================================
+# =========================================
           # Re-install Maven for Deploy Stage
           # =========================================
           - script: |
@@ -523,8 +523,11 @@ stages:
               
               echo "🔧 Setting up Maven $(MAVEN_VERSION) for deployment..."
               
+              # UPDATED MIRRORS: 
+              # 1. repo.maven.apache.org (Fastest CDN)
+              # 2. archive.apache.org (Reliable backup)
               MAVEN_MIRRORS=(
-                "https://dlcdn.apache.org/maven/maven-3/$(MAVEN_VERSION)/binaries/apache-maven-$(MAVEN_VERSION)-bin.tar.gz"
+                "https://repo.maven.apache.org/maven2/org/apache/maven/apache-maven/$(MAVEN_VERSION)/apache-maven-$(MAVEN_VERSION)-bin.tar.gz"
                 "https://archive.apache.org/dist/maven/maven-3/$(MAVEN_VERSION)/binaries/apache-maven-$(MAVEN_VERSION)-bin.tar.gz"
               )
               
@@ -532,16 +535,22 @@ stages:
               DOWNLOAD_SUCCESS=false
               
               for MAVEN_URL in "${MAVEN_MIRRORS[@]}"; do
-                if timeout 60 wget --timeout=20 --tries=2 -q -O "$MAVEN_ARCHIVE" "$MAVEN_URL" || \
-                   timeout 60 curl -fL --connect-timeout 20 --max-time 60 -o "$MAVEN_ARCHIVE" "$MAVEN_URL"; then
+                echo "📥 Trying: $MAVEN_URL"
+                
+                # Increased timeout to 90s to prevent 'Timeout was reached' errors
+                if timeout 90 wget --progress=dot:giga --timeout=30 --tries=2 -O "$MAVEN_ARCHIVE" "$MAVEN_URL" || \
+                   timeout 90 curl -fL --connect-timeout 30 --max-time 90 --retry 2 -o "$MAVEN_ARCHIVE" "$MAVEN_URL"; then
+                  echo "✅ Download successful"
                   DOWNLOAD_SUCCESS=true
                   break
+                else
+                  echo "⚠️ Mirror failed, trying next..."
                 fi
                 rm -f "$MAVEN_ARCHIVE" 2>/dev/null || true
               done
               
               if [ "$DOWNLOAD_SUCCESS" = false ]; then
-                echo "❌ Download failed"
+                echo "❌ All download mirrors failed."
                 exit 1
               fi
               
