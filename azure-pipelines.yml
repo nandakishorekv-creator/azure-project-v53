@@ -504,144 +504,186 @@ stages:
               targetPath: $(Build.ArtifactStagingDirectory)
               artifact: 'drop'
 
-  #####################################################
-  # DEPLOY STAGE: CloudHub Deployment
-  #####################################################
-  - stage: Deploy
-    displayName: 'Deploy to CloudHub'
-    dependsOn: Build
-    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
-    jobs:
-      - job: DeployToCloudHub
-        displayName: 'Deploy to CloudHub Sandbox'
-        steps:
-# =========================================
-          # Re-install Maven for Deploy Stage
-          # =========================================
-          - script: |
-              set -e
-              
-              echo "🔧 Setting up Maven $(MAVEN_VERSION) for deployment..."
-              
-              # UPDATED MIRRORS: 
-              # 1. repo.maven.apache.org (Fastest CDN)
-              # 2. archive.apache.org (Reliable backup)
-              MAVEN_MIRRORS=(
-                "https://repo.maven.apache.org/maven2/org/apache/maven/apache-maven/$(MAVEN_VERSION)/apache-maven-$(MAVEN_VERSION)-bin.tar.gz"
-                "https://archive.apache.org/dist/maven/maven-3/$(MAVEN_VERSION)/binaries/apache-maven-$(MAVEN_VERSION)-bin.tar.gz"
-              )
-              
-              MAVEN_ARCHIVE="maven.tar.gz"
-              DOWNLOAD_SUCCESS=false
-              
-              for MAVEN_URL in "${MAVEN_MIRRORS[@]}"; do
-                echo "📥 Trying: $MAVEN_URL"
-                
-                # Increased timeout to 90s to prevent 'Timeout was reached' errors
-                if timeout 90 wget --progress=dot:giga --timeout=30 --tries=2 -O "$MAVEN_ARCHIVE" "$MAVEN_URL" || \
-                   timeout 90 curl -fL --connect-timeout 30 --max-time 90 --retry 2 -o "$MAVEN_ARCHIVE" "$MAVEN_URL"; then
-                  echo "✅ Download successful"
-                  DOWNLOAD_SUCCESS=true
-                  break
-                else
-                  echo "⚠️ Mirror failed, trying next..."
-                fi
-                rm -f "$MAVEN_ARCHIVE" 2>/dev/null || true
-              done
-              
-              if [ "$DOWNLOAD_SUCCESS" = false ]; then
-                echo "❌ All download mirrors failed."
-                exit 1
-              fi
-              
-              # Extract and install
-              tar -xzf "$MAVEN_ARCHIVE"
-              sudo rm -rf $(MAVEN_HOME) 2>/dev/null || true
-              sudo mv apache-maven-$(MAVEN_VERSION) $(MAVEN_HOME)
-              sudo chmod -R 755 $(MAVEN_HOME)
-              
-              echo "✅ Maven ready:"
-              $(MAVEN_HOME)/bin/mvn --version
-              
-              rm -f "$MAVEN_ARCHIVE"
-              
-            displayName: 'Setup Maven for Deploy'
-          
-          # =========================================
-          # Re-download settings.xml
-          # =========================================
-          - task: DownloadSecureFile@1
-            name: mavenSettingsDeploy
-            displayName: 'Download Maven Settings'
-            inputs:
-              secureFile: 'settings.xml'
-          
-          - script: |
-              echo "📦 Installing settings.xml for deployment..."
-              mkdir -p ~/.m2
-              cp $(mavenSettingsDeploy.secureFilePath) ~/.m2/settings.xml
-              
-              if [ -f ~/.m2/settings.xml ]; then
-                echo "✅ settings.xml installed"
-              else
-                echo "❌ ERROR: settings.xml not found"
-                exit 1
-              fi
-              
-            displayName: 'Install Maven Settings for Deploy'
+#####################################################
+# DEPLOY STAGE: CloudHub Deployment (FIXED)
+#####################################################
+- stage: Deploy
+  displayName: 'Deploy to CloudHub'
+  dependsOn: Build
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+  jobs:
+    - job: DeployToCloudHub
+      displayName: 'Deploy to CloudHub Sandbox'
+      steps:
+        # =============================================
+        # STEP 1: Checkout Code (Required for Rebuild)
+        # =============================================
+        - checkout: self
+          displayName: 'Checkout Source Code'
+          clean: true
 
-          # =========================================
-          # Download Build Artifacts
-          # =========================================
-          - task: DownloadPipelineArtifact@2
-            displayName: 'Download Build Artifacts'
-            inputs:
-              artifact: 'drop'
-              path: $(Pipeline.Workspace)/drop
+        # =============================================
+        # STEP 2: Download settings.xml
+        # =============================================
+        - task: DownloadSecureFile@1
+          name: mavenSettingsDeploy
+          displayName: 'Download Maven Settings'
+          inputs:
+            secureFile: 'settings.xml'
+        
+        - script: |
+            echo "📦 Installing settings.xml..."
+            mkdir -p ~/.m2
+            cp $(mavenSettingsDeploy.secureFilePath) ~/.m2/settings.xml
+            
+            if [ -f ~/.m2/settings.xml ]; then
+              echo "✅ settings.xml installed"
+            else
+              echo "❌ ERROR: settings.xml not found"
+              exit 1
+            fi
+            
+          displayName: 'Install Maven Settings'
 
-          # =========================================
-          # Deploy to CloudHub (NO Exchange Publishing)
-          # =========================================
-          - script: |
-              export M2_HOME=$(MAVEN_HOME)
-              export PATH=$(MAVEN_HOME)/bin:$PATH
+        # =============================================
+        # STEP 3: Setup Java 17
+        # =============================================
+        - task: JavaToolInstaller@0
+          displayName: 'Install Java 17'
+          inputs:
+            versionSpec: '17'
+            jdkArchitectureOption: 'x64'
+            jdkSourceOption: 'PreInstalled'
+
+        # =============================================
+        # STEP 4: Install Maven 3.9.10
+        # =============================================
+        - script: |
+            set -e
+            
+            echo "🔧 Installing Maven $(MAVEN_VERSION)..."
+            
+            MAVEN_MIRRORS=(
+              "https://repo.maven.apache.org/maven2/org/apache/maven/apache-maven/$(MAVEN_VERSION)/apache-maven-$(MAVEN_VERSION)-bin.tar.gz"
+              "https://archive.apache.org/dist/maven/maven-3/$(MAVEN_VERSION)/binaries/apache-maven-$(MAVEN_VERSION)-bin.tar.gz"
+            )
+            
+            MAVEN_ARCHIVE="maven.tar.gz"
+            DOWNLOAD_SUCCESS=false
+            
+            for MAVEN_URL in "${MAVEN_MIRRORS[@]}"; do
+              echo "📥 Trying: $MAVEN_URL"
               
-              # ✅ Export credentials for dependency resolution
-              export anypointClientId=$(anypointClientId)
-              export anypointClientSecret=$(anypointClientSecret)
-          
-              echo "=================================================="
-              echo " CloudHub Deployment (Exchange Skip)"
-              echo "=================================================="
-              echo "Runtime: 4.9.0"
-              echo "Application: azure-project-v53"
+              if timeout 90 wget --progress=dot:giga --timeout=30 --tries=2 -O "$MAVEN_ARCHIVE" "$MAVEN_URL" || \
+                 timeout 90 curl -fL --connect-timeout 30 --max-time 90 --retry 2 -o "$MAVEN_ARCHIVE" "$MAVEN_URL"; then
+                echo "✅ Download successful"
+                DOWNLOAD_SUCCESS=true
+                break
+              fi
+              rm -f "$MAVEN_ARCHIVE" 2>/dev/null || true
+            done
+            
+            if [ "$DOWNLOAD_SUCCESS" = false ]; then
+              echo "❌ All download mirrors failed"
+              exit 1
+            fi
+            
+            # Extract and install
+            tar -xzf "$MAVEN_ARCHIVE"
+            sudo rm -rf $(MAVEN_HOME) 2>/dev/null || true
+            sudo mv apache-maven-$(MAVEN_VERSION) $(MAVEN_HOME)
+            sudo chmod -R 755 $(MAVEN_HOME)
+            
+            echo "✅ Maven installed:"
+            $(MAVEN_HOME)/bin/mvn --version
+            
+            rm -f "$MAVEN_ARCHIVE"
+            
+          displayName: 'Install Maven 3.9.10'
+
+        # =============================================
+        # STEP 5: Cache Maven Dependencies
+        # =============================================
+        - task: Cache@2
+          displayName: 'Cache Maven Dependencies'
+          inputs:
+            key: 'maven | "$(Agent.OS)" | **/pom.xml'
+            restoreKeys: |
+              maven | "$(Agent.OS)"
+              maven
+            path: $(MAVEN_CACHE_FOLDER)
+
+        # =============================================
+        # STEP 6: Build and Deploy to CloudHub
+        # =============================================
+        - script: |
+            export M2_HOME=$(MAVEN_HOME)
+            export PATH=$(MAVEN_HOME)/bin:$PATH
+            
+            # Export credentials for dependency resolution
+            export anypointClientId=$(anypointClientId)
+            export anypointClientSecret=$(anypointClientSecret)
+
+            echo "=================================================="
+            echo " CloudHub Deployment"
+            echo "=================================================="
+            echo "Runtime: 4.9.0"
+            echo "Application: azure-project-v53"
+            echo "Environment: Sandbox"
+            echo ""
+            
+            # Verify environment
+            echo "☕ Java:"
+            java -version 2>&1 | head -1
+            echo ""
+            echo "📦 Maven:"
+            mvn --version | head -1
+            echo ""
+            
+            # Verify POM exists
+            if [ ! -f pom.xml ]; then
+              echo "❌ ERROR: pom.xml not found"
+              exit 1
+            fi
+            
+            echo "✅ Project files verified"
+            echo ""
+            echo "📦 Building and deploying..."
+            echo ""
+            
+            # ✅ Package + Deploy in one command
+            mvn clean package mule:deploy \
+              -Pcloudhub \
+              -Dmule.version=4.9.0 \
+              -Danypoint.bearerToken=$(ANYPOINT_BEARER_TOKEN) \
+              -Dmule.env=dev \
+              -Dsecure.key=mule \
+              -DskipTests \
+              -Dmaven.repo.local=$(MAVEN_CACHE_FOLDER) \
+              -s ~/.m2/settings.xml \
+              -e
+              
+            if [ $? -eq 0 ]; then
               echo ""
-              
-              # Navigate to artifact
-              cd $(Pipeline.Workspace)/drop
-              
-              # ✅ Use mule:deploy goal directly (skips Exchange plugin)
-              mvn mule:deploy \
-                -Pcloudhub \
-                -Dmule.version=4.9.0 \
-                -Danypoint.bearerToken=$(ANYPOINT_BEARER_TOKEN) \
-                -Dmule.env=dev \
-                -Dsecure.key=mule \
-                -s ~/.m2/settings.xml \
-                -e
-                
-              if [ $? -eq 0 ]; then
-                echo ""
-                echo "✅ Deployment successful!"
-              else
-                echo ""
-                echo "❌ Deployment failed"
-                exit 1
-              fi
-              
-            displayName: 'Deploy to CloudHub (No Exchange)'
-            env:
-              M2_HOME: $(MAVEN_HOME)
-              ANYPOINT_BEARER_TOKEN: $(ANYPOINT_BEARER_TOKEN)
-              anypointClientId: $(anypointClientId)
-              anypointClientSecret: $(anypointClientSecret)
+              echo "=================================================="
+              echo " ✅ DEPLOYMENT SUCCESSFUL!"
+              echo "=================================================="
+              echo ""
+              echo "Application: azure-project-v53"
+              echo "Environment: Sandbox"
+              echo "Region: us-east-2"
+              echo ""
+              echo "🌐 Check status at:"
+              echo "   https://anypoint.mulesoft.com/cloudhub"
+            else
+              echo ""
+              echo "❌ DEPLOYMENT FAILED"
+              exit 1
+            fi
+            
+          displayName: 'Build and Deploy to CloudHub'
+          env:
+            M2_HOME: $(MAVEN_HOME)
+            ANYPOINT_BEARER_TOKEN: $(ANYPOINT_BEARER_TOKEN)
+            anypointClientId: $(anypointClientId)
+            anypointClientSecret: $(anypointClientSecret)
