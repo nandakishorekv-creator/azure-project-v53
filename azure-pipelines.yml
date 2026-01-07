@@ -441,7 +441,7 @@ stages:
           #     path: $(MAVEN_CACHE_FOLDER)
           
           # =============================================
-          # STEP 6: Build and Deploy to CloudHub 2.0
+          # STEP 6: Deploy to CloudHub 2.0 (Single Command)
           # =============================================
           - script: |
               export M2_HOME=$(MAVEN_HOME)
@@ -456,34 +456,17 @@ stages:
               echo "Target: Cloudhub-US-East-2"
               echo ""
               
-              # ✅ Step 1: Build the package
-              echo "📦 Building Mule Application..."
-              mvn clean install \
+              # ✅ SINGLE COMMAND: Build + Deploy in one go
+              mvn clean deploy \
+                -Pcloudhub2 \
                 -DskipTests \
                 -Dmule.version=4.9.0 \
-                -Dmule.env=dev \
-                -Dsecure.key=mule \
-                -s ~/.m2/settings.xml
-              
-              if [ $? -ne 0 ]; then
-                echo "❌ BUILD FAILED"
-                exit 1
-              fi
-              
-              echo ""
-              echo "✅ Build completed successfully"
-              echo ""
-              echo "🚀 Deploying to CloudHub 2.0..."
-              echo ""
-              
-              # ✅ Step 2: Deploy with the cloudhub2 profile
-              mvn mule:deploy \
-                -Pcloudhub2 \
                 -DanypointClientId=$(anypointClientId) \
                 -DanypointClientSecret=$(anypointClientSecret) \
                 -Dmule.env=dev \
                 -Dsecure.key=mule \
-                -s ~/.m2/settings.xml
+                -s ~/.m2/settings.xml \
+                -e
               
               if [ $? -eq 0 ]; then
                 echo ""
