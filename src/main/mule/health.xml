@@ -11,7 +11,9 @@
 
   <sub-flow name="readiness-check-subflow" doc:name="Salesforce Readiness Check" doc:id="68b3dc48-0052-1bc3-288a-115eb4442f4e">
     <try doc:name="Try" doc:id="44f67bc1-732f-19fd-3c98-5bb45efda229">
-      <salesforce:query config-ref="Salesforce_Config"></salesforce:query>
+      <salesforce:query config-ref="Salesforce_Config" doc:name="Query Organization" doc:id="salesforce-query-org">
+        <salesforce:salesforce-query><![CDATA[SELECT Id FROM Organization LIMIT 1]]></salesforce:salesforce-query>
+      </salesforce:query>
       <error-handler>
         <on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="a3f638b5-e325-27a7-2f01-406960919f63">
           <logger level="INFO" doc:name="Logger" doc:id="27e32891-5098-a9cc-c422-1adfacee635b" message="Salesforce health check failed"></logger>
