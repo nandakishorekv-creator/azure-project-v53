@@ -131,53 +131,83 @@
   <!-- ===================== -->
   <!-- ✅ PROFILES (CLOUDHUB DEPLOYMENT) -->
   <!-- ===================== -->
-  <profiles>
-    <profile>
-      <id>cloudhub</id>
-      <activation>
-        <activeByDefault>false</activeByDefault>
-      </activation>
-      <build>
-        <plugins>
-          <plugin>
-            <groupId>org.mule.tools.maven</groupId>
-            <artifactId>mule-maven-plugin</artifactId>
-            <version>${mule.maven.plugin.version}</version>
-            <configuration>
-              <cloudHubDeployment>
-                <uri>https://anypoint.mulesoft.com</uri>
-                <muleVersion>${app.runtime}</muleVersion>
-                <applicationName>${cloudhub.application.name}</applicationName>
-                <environment>${cloudhub.environment}</environment>
-                <region>${cloudhub.region}</region>
-                <workerType>${cloudhub.worker.type}</workerType>
-                <workers>${cloudhub.workers}</workers>
-                <objectStoreV2>true</objectStoreV2>
-                
-                <!-- ✅ Bearer Token Authentication (Azure Pipeline) -->
-                <authToken>${anypoint.bearerToken}</authToken>
-                
-                <!-- ✅ Deployment Properties -->
-                <properties>
-                  <mule.env>${mule.env}</mule.env>
-                  <secure.key>${secure.key}</secure.key>
-                  <anypoint.platform.client_id>${anypointClientId}</anypoint.platform.client_id>
-                  <anypoint.platform.client_secret>${anypointClientSecret}</anypoint.platform.client_secret>
-                </properties>
-              </cloudHubDeployment>
-            </configuration>
-            <executions>
-              <execution>
-                <id>deploy</id>
-                <phase>deploy</phase>
-                <goals>
-                  <goal>deploy</goal>
-                </goals>
-              </execution>
-            </executions>
-          </plugin>
-        </plugins>
-      </build>
-    </profile>
-  </profiles>
+  <!-- ===================== -->
+<!-- ✅ PROFILES (CLOUDHUB DEPLOYMENT - EXCHANGE DISABLED) -->
+<!-- ===================== -->
+<profiles>
+  <profile>
+    <id>cloudhub</id>
+    <activation>
+      <activeByDefault>false</activeByDefault>
+    </activation>
+    <build>
+      <plugins>
+        <!-- ============================================= -->
+        <!-- ✅ DISABLE EXCHANGE PLUGIN (FIX FOR AZURE)   -->
+        <!-- ============================================= -->
+        <plugin>
+          <groupId>org.mule.tools.maven</groupId>
+          <artifactId>exchange-mule-maven-plugin</artifactId>
+          <version>0.1.4</version>
+          <executions>
+            <!-- Disable exchange-pre-deploy -->
+            <execution>
+              <id>default-exchange-pre-deploy</id>
+              <phase>none</phase>
+            </execution>
+            <!-- Disable exchange-deploy -->
+            <execution>
+              <id>default-exchange-deploy</id>
+              <phase>none</phase>
+            </execution>
+          </executions>
+        </plugin>
+
+        <!-- ============================================= -->
+        <!-- ✅ CLOUDHUB DEPLOYMENT                       -->
+        <!-- ============================================= -->
+        <plugin>
+          <groupId>org.mule.tools.maven</groupId>
+          <artifactId>mule-maven-plugin</artifactId>
+          <version>${mule.maven.plugin.version}</version>
+          <configuration>
+            <cloudHubDeployment>
+              <uri>https://anypoint.mulesoft.com</uri>
+              <muleVersion>${app.runtime}</muleVersion>
+              <applicationName>${cloudhub.application.name}</applicationName>
+              <environment>${cloudhub.environment}</environment>
+              <region>${cloudhub.region}</region>
+              <workerType>${cloudhub.worker.type}</workerType>
+              <workers>${cloudhub.workers}</workers>
+              <objectStoreV2>true</objectStoreV2>
+              
+              <!-- ✅ Bearer Token Authentication (Azure Pipeline) -->
+              <authToken>${anypoint.bearerToken}</authToken>
+              
+              <!-- ✅ Deployment Properties -->
+              <properties>
+                <mule.env>${mule.env}</mule.env>
+                <secure.key>${secure.key}</secure.key>
+                <anypoint.platform.client_id>${anypointClientId}</anypoint.platform.client_id>
+                <anypoint.platform.client_secret>${anypointClientSecret}</anypoint.platform.client_secret>
+              </properties>
+              
+              <!-- ✅ OPTIONAL: Skip deployment verification for faster pipelines -->
+              <skipDeploymentVerification>false</skipDeploymentVerification>
+            </cloudHubDeployment>
+          </configuration>
+          <executions>
+            <execution>
+              <id>deploy</id>
+              <phase>deploy</phase>
+              <goals>
+                <goal>deploy</goal>
+              </goals>
+            </execution>
+          </executions>
+        </plugin>
+      </plugins>
+    </build>
+  </profile>
+</profiles>
 </project>
