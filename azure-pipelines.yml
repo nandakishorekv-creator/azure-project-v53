@@ -1,5 +1,6 @@
 # Azure Pipelines YAML for MuleSoft Projects
-# ✅ FIXED: Proper stage structure + CloudHub deployment
+# ✅ FIXED: Maven repository location + CloudHub deployment
+# ✅ Complete pipeline with Maven 3.9.10 + Java 17
 
 trigger:
   branches:
@@ -16,7 +17,7 @@ variables:
   - name: MAVEN_VERSION
     value: '3.9.10'
   - name: MAVEN_CACHE_FOLDER
-    value: $(Pipeline.Workspace)/.m2/repository
+    value: $(HOME)/.m2/repository
   - name: MAVEN_HOME
     value: /opt/maven
   - name: PROJECT_NAME
@@ -99,10 +100,16 @@ stages:
               sudo mv "$MAVEN_DIR" $(MAVEN_HOME)
               sudo chmod -R 755 $(MAVEN_HOME)
               
+              echo ""
               echo "✅ Maven installed:"
               $(MAVEN_HOME)/bin/mvn --version
               
               rm -f "$MAVEN_ARCHIVE"
+              
+              echo ""
+              echo "=================================================="
+              echo "  Maven Installation Complete"
+              echo "=================================================="
               
             displayName: 'Install Maven 3.9.10'
           
@@ -122,6 +129,9 @@ stages:
               
               if [ -f ~/.m2/settings.xml ]; then
                 echo "✅ settings.xml installed"
+                echo "   Location: ~/.m2/settings.xml"
+                FILE_SIZE=$(stat -c%s ~/.m2/settings.xml 2>/dev/null || stat -f%z ~/.m2/settings.xml 2>/dev/null)
+                echo "   Size: $FILE_SIZE bytes"
               else
                 echo "❌ ERROR: Installation failed"
                 exit 1
@@ -140,7 +150,51 @@ stages:
               jdkSourceOption: 'PreInstalled'
 
           # =============================================
-          # STEP 5: Cache Maven Dependencies
+          # STEP 5: Verify Environment
+          # =============================================
+          - script: |
+              echo "=================================================="
+              echo "  Build Environment"
+              echo "=================================================="
+              echo ""
+              
+              echo "☕ Java:"
+              java -version 2>&1 | head -3
+              echo "   JAVA_HOME: $JAVA_HOME"
+              echo ""
+              
+              echo "📦 Maven:"
+              export M2_HOME=$(MAVEN_HOME)
+              export PATH=$(MAVEN_HOME)/bin:$PATH
+              mvn --version
+              echo "   M2_HOME: $M2_HOME"
+              echo ""
+              
+              echo "⚙️ Settings:"
+              if [ -f ~/.m2/settings.xml ]; then
+                echo "   ✅ settings.xml exists"
+              else
+                echo "   ❌ settings.xml missing"
+                exit 1
+              fi
+              echo ""
+              
+              echo "📋 POM:"
+              if [ -f pom.xml ]; then
+                echo "   ✅ pom.xml found"
+              else
+                echo "   ⚠️ pom.xml not found"
+              fi
+              
+              echo ""
+              echo "✅ Verification complete"
+              
+            displayName: 'Verify Build Environment'
+            env:
+              M2_HOME: $(MAVEN_HOME)
+
+          # =============================================
+          # STEP 6: Cache Maven Dependencies
           # =============================================
           - task: Cache@2
             displayName: 'Cache Maven Dependencies'
@@ -149,25 +203,36 @@ stages:
               restoreKeys: |
                 maven | "$(Agent.OS)"
                 maven
-              path: $(MAVEN_CACHE_FOLDER)
+              path: $(HOME)/.m2/repository
 
           # =============================================
-          # STEP 6: Maven Validate
+          # STEP 7: Maven Validate
           # =============================================
           - script: |
               export M2_HOME=$(MAVEN_HOME)
               export PATH=$(MAVEN_HOME)/bin:$PATH
               
+              echo "=================================================="
+              echo " Maven Validate"
+              echo "=================================================="
+              echo ""
+              
+              echo "Maven version:"
+              mvn --version | head -1
+              echo ""
+              
               echo "🔍 Running Maven validate..."
+              echo ""
               
               mvn validate \
-                -Dmaven.repo.local=$(MAVEN_CACHE_FOLDER) \
                 -s ~/.m2/settings.xml \
                 -e
               
               if [ $? -eq 0 ]; then
-                echo "✅ Validation completed"
+                echo ""
+                echo "✅ Validation completed successfully"
               else
+                echo ""
                 echo "❌ VALIDATION FAILED"
                 exit 1
               fi
@@ -177,40 +242,63 @@ stages:
               M2_HOME: $(MAVEN_HOME)
 
           # =============================================
-          # STEP 7: Maven Package
+          # STEP 8: Maven Package
           # =============================================
           - script: |
               export M2_HOME=$(MAVEN_HOME)
               export PATH=$(MAVEN_HOME)/bin:$PATH
               
+              echo "=================================================="
+              echo " Maven Package"
+              echo "=================================================="
+              echo ""
+              
+              echo "☕ Java:"
+              java -version 2>&1 | head -1
+              echo ""
+              echo "📦 Maven:"
+              mvn --version | head -1
+              echo ""
+              echo "📁 Maven repository: ~/.m2/repository"
+              echo ""
+              
               echo "📦 Running Maven package..."
+              echo ""
               
               mvn clean package \
                 -Dmule.version=4.9.0 \
                 -Dsecure.key=mule \
                 -Dmule.env=dev \
                 -DskipTests \
-                -Dmaven.repo.local=$(MAVEN_CACHE_FOLDER) \
                 -s ~/.m2/settings.xml \
                 -e
               
               if [ $? -ne 0 ]; then
+                echo ""
                 echo "❌ PACKAGE BUILD FAILED"
                 exit 1
               fi
               
-              echo "✅ Package completed"
+              echo ""
+              echo "✅ Package completed successfully"
+              echo ""
               
               # Verify JAR was created
+              echo "📦 Verifying build artifacts..."
               if [ -d target ]; then
                 JAR_FILE=$(ls -1 target/*.jar 2>/dev/null | head -1)
                 if [ -n "$JAR_FILE" ]; then
                   echo "✅ JAR file created:"
                   ls -lh target/*.jar
                 else
-                  echo "❌ ERROR: No JAR file found"
+                  echo "❌ ERROR: No JAR file found in target/"
+                  echo "   Build may have failed silently"
                   exit 1
                 fi
+              else
+                echo "❌ ERROR: target/ directory not found"
+                echo "   Maven build did not execute properly"
+                exit 1
               fi
               
             displayName: 'Maven Package'
@@ -218,7 +306,7 @@ stages:
               M2_HOME: $(MAVEN_HOME)
 
           # =============================================
-          # STEP 8: Copy Build Artifacts
+          # STEP 9: Copy Build Artifacts
           # =============================================
           - task: CopyFiles@2
             displayName: 'Copy Build Artifacts'
@@ -230,7 +318,7 @@ stages:
               flattenFolders: false
 
           # =============================================
-          # STEP 9: Publish Pipeline Artifacts
+          # STEP 10: Publish Pipeline Artifacts
           # =============================================
           - task: PublishPipelineArtifact@1
             displayName: 'Publish Pipeline Artifacts'
@@ -239,7 +327,7 @@ stages:
               artifact: 'drop'
 
   #####################################################
-  # DEPLOY STAGE (SIBLING OF BUILD - NOT NESTED!)
+  # DEPLOY STAGE
   #####################################################
   - stage: Deploy
     displayName: 'Deploy to CloudHub'
@@ -295,7 +383,10 @@ stages:
           - script: |
               set -e
               
-              echo "🔧 Installing Maven $(MAVEN_VERSION)..."
+              echo "=================================================="
+              echo "  Installing Maven $(MAVEN_VERSION)"
+              echo "=================================================="
+              echo ""
               
               MAVEN_MIRRORS=(
                 "https://repo.maven.apache.org/maven2/org/apache/maven/apache-maven/$(MAVEN_VERSION)/apache-maven-$(MAVEN_VERSION)-bin.tar.gz"
@@ -328,10 +419,16 @@ stages:
               sudo mv apache-maven-$(MAVEN_VERSION) $(MAVEN_HOME)
               sudo chmod -R 755 $(MAVEN_HOME)
               
+              echo ""
               echo "✅ Maven installed:"
               $(MAVEN_HOME)/bin/mvn --version
               
               rm -f "$MAVEN_ARCHIVE"
+              
+              echo ""
+              echo "=================================================="
+              echo "  Maven Installation Complete"
+              echo "=================================================="
               
             displayName: 'Install Maven 3.9.10'
 
@@ -345,7 +442,7 @@ stages:
               restoreKeys: |
                 maven | "$(Agent.OS)"
                 maven
-              path: $(MAVEN_CACHE_FOLDER)
+              path: $(HOME)/.m2/repository
 
           # =============================================
           # STEP 6: Build and Deploy to CloudHub
@@ -373,6 +470,8 @@ stages:
               echo "📦 Maven:"
               mvn --version | head -1
               echo ""
+              echo "📁 Maven repository: ~/.m2/repository"
+              echo ""
               
               # Verify POM exists
               if [ ! -f pom.xml ]; then
@@ -385,7 +484,7 @@ stages:
               echo "📦 Building and deploying..."
               echo ""
               
-              # ✅ Package + Deploy in one command
+              # Package + Deploy in one command
               mvn clean package mule:deploy \
                 -Pcloudhub \
                 -Dmule.version=4.9.0 \
@@ -393,7 +492,6 @@ stages:
                 -Dmule.env=dev \
                 -Dsecure.key=mule \
                 -DskipTests \
-                -Dmaven.repo.local=$(MAVEN_CACHE_FOLDER) \
                 -s ~/.m2/settings.xml \
                 -e
                 
