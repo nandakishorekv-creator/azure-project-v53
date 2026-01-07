@@ -27,8 +27,9 @@
     <secure.key>dummy</secure.key>
     <mule.env>dev</mule.env>
     
-    <!-- ✅ CRITICAL: Skip default Maven deploy to Exchange -->
+    <!-- ✅ CRITICAL: Skip all deployment plugins except mule:deploy -->
     <maven.deploy.skip>true</maven.deploy.skip>
+    <skipExchangePublish>true</skipExchangePublish>
     
     <!-- CloudHub 2.0 Deployment Properties -->
     <cloudhub.application.name>azure-project-v53</cloudhub.application.name>
@@ -53,7 +54,7 @@
         </configuration>
       </plugin>
       
-      <!-- ✅ Skip default Maven deploy plugin globally -->
+      <!-- ✅ CRITICAL: Skip default Maven deploy plugin -->
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-deploy-plugin</artifactId>
@@ -61,6 +62,26 @@
         <configuration>
           <skip>true</skip>
         </configuration>
+      </plugin>
+      
+      <!-- ✅ CRITICAL: Disable Exchange plugin globally -->
+      <plugin>
+        <groupId>org.mule.tools.maven</groupId>
+        <artifactId>exchange-mule-maven-plugin</artifactId>
+        <version>0.1.4</version>
+        <configuration>
+          <skip>true</skip>
+        </configuration>
+        <executions>
+          <execution>
+            <id>default-exchange-pre-deploy</id>
+            <phase>none</phase>
+          </execution>
+          <execution>
+            <id>default-exchange-deploy</id>
+            <phase>none</phase>
+          </execution>
+        </executions>
       </plugin>
     </plugins>
   </build>
@@ -184,15 +205,6 @@
                 </properties>
               </cloudHub2Deployment>
             </configuration>
-            <executions>
-              <execution>
-                <id>deploy-cloudhub2</id>
-                <phase>deploy</phase>
-                <goals>
-                  <goal>deploy</goal>
-                </goals>
-              </execution>
-            </executions>
           </plugin>
         </plugins>
       </build>
