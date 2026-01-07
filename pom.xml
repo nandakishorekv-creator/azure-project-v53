@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="
+           http://maven.apache.org/POM/4.0.0
+           https://maven.apache.org/xsd/maven-4.0.0.xsd">
+
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>com.mycompany</groupId>
+  <artifactId>azure-project-v53</artifactId>
+  <version>1.0.0-SNAPSHOT</version>
+  <packaging>mule-application</packaging>
+
+  <name>azure-project-v53</name>
+
+  <!-- ===================== -->
+  <!-- PROPERTIES -->
+  <!-- ===================== -->
+  <properties>
+    <app.runtime>4.9.0</app.runtime>
+    <mule.maven.plugin.version>4.6.0</mule.maven.plugin.version>
+
+    <!-- safe defaults -->
+    <anypoint.environment>Sandbox</anypoint.environment>
+    <secure.key>dummy</secure.key>
+    <mule.env>dev</mule.env>
+  </properties>
+
+  <!-- ===================== -->
+  <!-- BUILD -->
+  <!-- ===================== -->
+  <build>
+
+    <!-- REQUIRED for mule-application -->
+    <extensions>
+      <extension>
+        <groupId>org.mule.tools.maven</groupId>
+        <artifactId>mule-maven-plugin</artifactId>
+        <version>${mule.maven.plugin.version}</version>
+      </extension>
+    </extensions>
+
+    <plugins>
+
+      <!-- ✅ Correct packaging configuration -->
+      <plugin>
+        <groupId>org.mule.tools.maven</groupId>
+        <artifactId>mule-maven-plugin</artifactId>
+        <version>${mule.maven.plugin.version}</version>
+        <configuration>
+          <muleVersion>${app.runtime}</muleVersion>
+        </configuration>
+        <executions>
+          <execution>
+            <id>package</id>
+            <phase>package</phase>
+            <goals>
+              <goal>package</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+
+    </plugins>
+  </build>
+
+  <!-- ===================== -->
+  <!-- DEPENDENCIES -->
+  <!-- ===================== -->
+  <dependencies>
+
+    <dependency>
+      <groupId>org.mule.connectors</groupId>
+      <artifactId>mule-http-connector</artifactId>
+      <version>1.10.3</version>
+      <classifier>mule-plugin</classifier>
+    </dependency>
+
+    <dependency>
+      <groupId>org.mule.modules</groupId>
+      <artifactId>mule-apikit-module</artifactId>
+      <version>1.11.3</version>
+      <classifier>mule-plugin</classifier>
+    </dependency>
+
+    <dependency>
+      <groupId>com.mulesoft.connectors</groupId>
+      <artifactId>mule-salesforce-connector</artifactId>
+      <version>10.22.5</version>
+      <classifier>mule-plugin</classifier>
+    </dependency>
+
+    <dependency>
+      <groupId>com.mulesoft.modules</groupId>
+      <artifactId>mule-secure-configuration-property-module</artifactId>
+      <version>1.3.0</version>
+      <classifier>mule-plugin</classifier>
+    </dependency>
+
+  </dependencies>
+
+  <!-- ===================== -->
+  <!-- REPOSITORIES -->
+  <!-- ===================== -->
+  <repositories>
+    <repository>
+      <id>anypoint-exchange-v3</id>
+      <url>https://maven.anypoint.mulesoft.com/api/v3/maven</url>
+    </repository>
+    <repository>
+      <id>mulesoft-releases</id>
+      <url>https://repository.mulesoft.org/releases/</url>
+    </repository>
+  </repositories>
+
+  <pluginRepositories>
+    <pluginRepository>
+      <id>mulesoft-releases</id>
+      <url>https://repository.mulesoft.org/releases/</url>
+    </pluginRepository>
+  </pluginRepositories>
+
+</project>

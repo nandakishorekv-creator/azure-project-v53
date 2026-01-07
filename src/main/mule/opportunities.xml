@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns="http://www.mulesoft.org/schema/mule/core"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+      xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+      xmlns:salesforce="http://www.mulesoft.org/schema/mule/salesforce"
+      xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+        http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+        http://www.mulesoft.org/schema/mule/salesforce http://www.mulesoft.org/schema/mule/salesforce/current/mule-salesforce.xsd">
+
+  <flow name="post-opportunities-flow" doc:name="post-opportunities-flow" doc:id="post-opportunities-flow">
+    <logger level="INFO" message="Creating Opportunity in Salesforce" doc:name="Logger" doc:id="logger-post-opportunities-001"></logger>
+    <ee:transform doc:name="Transform to Salesforce Opportunity" doc:id="transform-post-opportunities-001">
+      <ee:message doc:id="doc-5fdadade">
+        <ee:set-payload doc:id="doc-cfd11168" resource="dw/transform-to-salesforce-opportunity-8.dwl"></ee:set-payload>
+      </ee:message>
+    </ee:transform>
+    <salesforce:create type="Opportunity" config-ref="Salesforce_Config" doc:name="Create Opportunity" doc:id="salesforce-create-opportunity-001"></salesforce:create>
+    <ee:transform doc:name="Transform Response" doc:id="transform-post-opportunities-002">
+      <ee:message doc:id="doc-58ca4e9d">
+        <ee:set-payload doc:id="doc-c5057f99" resource="dw/transform-response-9.dwl"></ee:set-payload>
+      </ee:message>
+    </ee:transform>
+    <error-handler ref="globalErrorHandler"></error-handler>
+  </flow>
+
+  <flow name="get-opportunities-by-id-flow" doc:name="get-opportunities-by-id-flow" doc:id="get-opportunities-by-id-flow">
+    <logger level="INFO" message="#['Retrieving Opportunity with ID: ' ++ attributes.uriParams.id]" doc:name="Logger" doc:id="logger-get-opportunities-001"></logger>
+    <salesforce:retrieve type="Opportunity" config-ref="Salesforce_Config" doc:name="Retrieve Opportunity" doc:id="salesforce-retrieve-opportunity-001">
+      <salesforce:ids></salesforce:ids>
+      <salesforce:fields doc:id="doc-5d733186">
+        <salesforce:field value="Id" doc:id="doc-f870655d"></salesforce:field>
+        <salesforce:field value="Name" doc:id="doc-8283d29a"></salesforce:field>
+        <salesforce:field value="Amount" doc:id="doc-1adf4f89"></salesforce:field>
+        <salesforce:field value="StageName" doc:id="doc-08c5a56e"></salesforce:field>
+        <salesforce:field value="CloseDate" doc:id="doc-f9a309c2"></salesforce:field>
+        <salesforce:field value="AccountId" doc:id="doc-295f6627"></salesforce:field>
+      </salesforce:fields>
+    </salesforce:retrieve>
+    <ee:transform doc:name="Transform Response" doc:id="transform-get-opportunities-001">
+      <ee:message doc:id="doc-5e11c88b">
+        <ee:set-payload doc:id="doc-7de1957f" resource="dw/transform-response-10.dwl"></ee:set-payload>
+      </ee:message>
+    </ee:transform>
+    <error-handler ref="globalErrorHandler"></error-handler>
+  </flow>
+
+  <flow name="put-opportunities-by-id-flow" doc:name="put-opportunities-by-id-flow" doc:id="put-opportunities-by-id-flow">
+    <logger level="INFO" message="#['Updating Opportunity with ID: ' ++ attributes.uriParams.id]" doc:name="Logger" doc:id="logger-put-opportunities-001"></logger>
+    <ee:transform doc:name="Transform to Salesforce Opportunity" doc:id="transform-put-opportunities-001">
+      <ee:message doc:id="doc-1d8a73a6">
+        <ee:set-payload doc:id="doc-ea8285e6" resource="dw/transform-to-salesforce-opportunity-11.dwl"></ee:set-payload>
+      </ee:message>
+    </ee:transform>
+    <salesforce:update type="Opportunity" config-ref="Salesforce_Config" doc:name="Update Opportunity" doc:id="salesforce-update-opportunity-001"></salesforce:update>
+    <ee:transform doc:name="Transform Response" doc:id="transform-put-opportunities-002">
+      <ee:message doc:id="doc-8e32c8bb">
+        <ee:set-payload doc:id="doc-4ab2c297" resource="dw/transform-response-12.dwl"></ee:set-payload>
+      </ee:message>
+    </ee:transform>
+    <error-handler ref="globalErrorHandler"></error-handler>
+  </flow>
+
+  <flow name="delete-opportunities-by-id-flow" doc:name="delete-opportunities-by-id-flow" doc:id="delete-opportunities-by-id-flow">
+    <logger level="INFO" message="#['Deleting Opportunity with ID: ' ++ attributes.uriParams.id]" doc:name="Logger" doc:id="logger-delete-opportunities-001"></logger>
+    <ee:transform doc:name="Set Opportunity IDs" doc:id="transform-delete-opportunities-001">
+      <ee:message doc:id="doc-2c34d30f">
+        <ee:set-payload doc:id="doc-042b3d98" resource="dw/set-opportunity-ids-13.dwl"></ee:set-payload>
+      </ee:message>
+    </ee:transform>
+    <salesforce:delete config-ref="Salesforce_Config" doc:name="Delete Opportunity" doc:id="salesforce-delete-opportunity-001"></salesforce:delete>
+    <ee:transform doc:name="Transform Response" doc:id="transform-delete-opportunities-002">
+      <ee:message doc:id="doc-c6188fd8">
+        <ee:set-payload doc:id="doc-2cb68116" resource="dw/transform-response-14.dwl"></ee:set-payload>
+      </ee:message>
+    </ee:transform>
+    <error-handler ref="globalErrorHandler"></error-handler>
+  </flow>
+
+</mule>

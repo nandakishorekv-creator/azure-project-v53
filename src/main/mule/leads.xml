@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns="http://www.mulesoft.org/schema/mule/core"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+      xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+      xmlns:salesforce="http://www.mulesoft.org/schema/mule/salesforce"
+      xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+        http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+        http://www.mulesoft.org/schema/mule/salesforce http://www.mulesoft.org/schema/mule/salesforce/current/mule-salesforce.xsd">
+
+  <flow name="post-leads-flow" doc:name="post-leads-flow" doc:id="post-leads-flow">
+    <logger level="INFO" message="Creating Lead in Salesforce" doc:name="Logger" doc:id="logger-post-leads-001"></logger>
+    <ee:transform doc:name="Transform to Salesforce Lead" doc:id="transform-post-leads-001">
+      <ee:message doc:id="doc-75ff42bd">
+        <ee:set-payload doc:id="doc-21b8a17f" resource="dw/transform-to-salesforce-lead-1.dwl"></ee:set-payload>
+      </ee:message>
+    </ee:transform>
+    <salesforce:create type="Lead" config-ref="Salesforce_Config" doc:name="Create Lead" doc:id="salesforce-create-lead-001"></salesforce:create>
+    <ee:transform doc:name="Transform Response" doc:id="transform-post-leads-002">
+      <ee:message doc:id="doc-78dcf599">
+        <ee:set-payload doc:id="doc-0fa995ab" resource="dw/transform-response-2.dwl"></ee:set-payload>
+      </ee:message>
+    </ee:transform>
+    <error-handler ref="globalErrorHandler"></error-handler>
+  </flow>
+
+  <flow name="get-leads-by-id-flow" doc:name="get-leads-by-id-flow" doc:id="get-leads-by-id-flow">
+    <logger level="INFO" message="#['Retrieving Lead with ID: ' ++ attributes.uriParams.id]" doc:name="Logger" doc:id="logger-get-leads-001"></logger>
+    <salesforce:retrieve type="Lead" config-ref="Salesforce_Config" doc:name="Retrieve Lead" doc:id="salesforce-retrieve-lead-001">
+      <salesforce:ids></salesforce:ids>
+      <salesforce:fields doc:id="doc-d835c1ae">
+        <salesforce:field value="Id" doc:id="doc-38ee3080"></salesforce:field>
+        <salesforce:field value="FirstName" doc:id="doc-044cc670"></salesforce:field>
+        <salesforce:field value="LastName" doc:id="doc-f9822788"></salesforce:field>
+        <salesforce:field value="Company" doc:id="doc-2fb4a0c2"></salesforce:field>
+        <salesforce:field value="Email" doc:id="doc-e67e3499"></salesforce:field>
+        <salesforce:field value="Phone" doc:id="doc-dccc5904"></salesforce:field>
+        <salesforce:field value="Status" doc:id="doc-df9e8f11"></salesforce:field>
+      </salesforce:fields>
+    </salesforce:retrieve>
+    <ee:transform doc:name="Transform Response" doc:id="transform-get-leads-001">
+      <ee:message doc:id="doc-b0c658bd">
+        <ee:set-payload doc:id="doc-89821e00" resource="dw/transform-response-3.dwl"></ee:set-payload>
+      </ee:message>
+    </ee:transform>
+    <error-handler ref="globalErrorHandler"></error-handler>
+  </flow>
+
+  <flow name="put-leads-by-id-flow" doc:name="put-leads-by-id-flow" doc:id="put-leads-by-id-flow">
+    <logger level="INFO" message="#['Updating Lead with ID: ' ++ attributes.uriParams.id]" doc:name="Logger" doc:id="logger-put-leads-001"></logger>
+    <ee:transform doc:name="Transform to Salesforce Lead" doc:id="transform-put-leads-001">
+      <ee:message doc:id="doc-ffa3cba7">
+        <ee:set-payload doc:id="doc-94c1f710" resource="dw/transform-to-salesforce-lead-4.dwl"></ee:set-payload>
+      </ee:message>
+    </ee:transform>
+    <salesforce:update type="Lead" config-ref="Salesforce_Config" doc:name="Update Lead" doc:id="salesforce-update-lead-001"></salesforce:update>
+    <ee:transform doc:name="Transform Response" doc:id="transform-put-leads-002">
+      <ee:message doc:id="doc-fb57300c">
+        <ee:set-payload doc:id="doc-0cd290eb" resource="dw/transform-response-5.dwl"></ee:set-payload>
+      </ee:message>
+    </ee:transform>
+    <error-handler ref="globalErrorHandler"></error-handler>
+  </flow>
+
+  <flow name="delete-leads-by-id-flow" doc:name="delete-leads-by-id-flow" doc:id="delete-leads-by-id-flow">
+    <logger level="INFO" message="#['Deleting Lead with ID: ' ++ attributes.uriParams.id]" doc:name="Logger" doc:id="logger-delete-leads-001"></logger>
+    <ee:transform doc:name="Set Lead IDs" doc:id="transform-delete-leads-001">
+      <ee:message doc:id="doc-e53fa391">
+        <ee:set-payload doc:id="doc-f43091d8" resource="dw/set-lead-ids-6.dwl"></ee:set-payload>
+      </ee:message>
+    </ee:transform>
+    <salesforce:delete config-ref="Salesforce_Config" doc:name="Delete Lead" doc:id="salesforce-delete-lead-001"></salesforce:delete>
+    <ee:transform doc:name="Transform Response" doc:id="transform-delete-leads-002">
+      <ee:message doc:id="doc-738c1087">
+        <ee:set-payload doc:id="doc-8b1b67ef" resource="dw/transform-response-7.dwl"></ee:set-payload>
+      </ee:message>
+    </ee:transform>
+    <error-handler ref="globalErrorHandler"></error-handler>
+  </flow>
+
+</mule>
