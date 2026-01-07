@@ -618,10 +618,10 @@ stages:
                 -Pcloudhub \
                 -Dmule.version=4.9.0 \
                 -Danypoint.bearerToken=$(ANYPOINT_BEARER_TOKEN) \
+                -Dmule.env=dev \
+                -Dsecure.key=mule \
+                -DanypointClientId=$(anypointClientId) \
+                -DanypointClientSecret=$(anypointClientSecret) \
                 -DskipTests \
                 -s ~/.m2/settings.xml \
                 -e
-            displayName: 'Deploy to CloudHub (Bearer Token)'
-            env:
-              M2_HOME: $(MAVEN_HOME)
-              ANYPOINT_BEARER_TOKEN: $(ANYPOINT_BEARER_TOKEN)
