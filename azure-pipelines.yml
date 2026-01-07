@@ -653,7 +653,7 @@ stages:
                       
                       # ✅ Package + Deploy in one command
                       mvn clean package mule:deploy \
-                        -Pcloudhub \
+                        -Pcloudhub2 \
                         -Dmule.version=4.9.0 \
                         -Danypoint.bearerToken=$(ANYPOINT_BEARER_TOKEN) \
                         -Dmule.env=dev \
