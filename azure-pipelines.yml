@@ -11,15 +11,19 @@ variables:
   - name: MAVEN_CACHE_FOLDER
     value: $(Pipeline.Workspace)/.m2/repository
 
-stages:
 # ================= BUILD =================
+stages:
 - stage: Build
   displayName: Build Mule App
   jobs:
   - job: BuildJob
+    displayName: Maven Build
     steps:
+
+    # ---- settings.xml ----
     - task: DownloadSecureFile@1
       name: mavenSettings
+      displayName: Download Maven settings.xml
       inputs:
         secureFile: settings.xml
 
@@ -27,42 +31,59 @@ stages:
         mkdir -p ~/.m2
         cp $(mavenSettings.secureFilePath) ~/.m2/settings.xml
       displayName: Install settings.xml
-      
+
+    # ---- Java 17 ----
     - task: JavaToolInstaller@0
-      displayName: 'Setup Java 17'
+      displayName: Setup Java 17
       inputs:
         versionSpec: '17'
         jdkArchitectureOption: 'x64'
         jdkSourceOption: 'PreInstalled'
 
+    # ---- Maven cache ----
+    - task: Cache@2
+      displayName: Cache Maven repo
+      inputs:
+        key: 'maven | "$(Agent.OS)" | pom.xml'
+        restoreKeys: |
+          maven | "$(Agent.OS)"
+        path: $(MAVEN_CACHE_FOLDER)
 
+    # ---- Build ----
     - script: |
         mvn clean package \
           -DskipTests \
           -Dmule.env=dev \
           -Dsecure.key=mule \
+          -Dmaven.repo.local=$(MAVEN_CACHE_FOLDER) \
           -s ~/.m2/settings.xml
       displayName: Maven Package
 
+    # ---- Publish artifact ----
     - task: PublishPipelineArtifact@1
+      displayName: Publish Mule Artifact
       inputs:
         targetPath: target
         artifact: mule-app
 
 # ================= DEPLOY =================
 - stage: Deploy
+  displayName: Deploy to CloudHub 2.0
   dependsOn: Build
   condition: succeeded()
   jobs:
   - job: DeployJob
+    displayName: CloudHub 2.0 Deploy
     steps:
-    - task: DownloadPipelineArtifact@2
-      inputs:
-        artifact: mule-app
-        path: target
 
+    # ---- Checkout repo (pom.xml required) ----
+    - checkout: self
+      clean: true
+
+    # ---- settings.xml again ----
     - task: DownloadSecureFile@1
       name: mavenSettingsDeploy
+      displayName: Download Maven settings.xml
       inputs:
         secureFile: settings.xml
 
@@ -71,13 +92,15 @@ stages:
         cp $(mavenSettingsDeploy.secureFilePath) ~/.m2/settings.xml
       displayName: Install settings.xml
 
+    # ---- Java 17 ----
     - task: JavaToolInstaller@0
-      displayName: 'Setup Java 17'
+      displayName: Setup Java 17
       inputs:
         versionSpec: '17'
         jdkArchitectureOption: 'x64'
         jdkSourceOption: 'PreInstalled'
 
+    # ---- Deploy using mule-maven-plugin ----
     - script: |
         mvn deploy \
           -Pcloudhub2 \
@@ -86,5 +109,6 @@ stages:
           -Dmule.env=dev \
           -Dsecure.key=mule \
           -DskipTests \
+          -Dmaven.repo.local=$(MAVEN_CACHE_FOLDER) \
           -s ~/.m2/settings.xml
       displayName: Deploy to CloudHub 2.0
