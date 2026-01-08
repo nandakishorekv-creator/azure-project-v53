@@ -13,14 +13,7 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     <app.runtime>4.9.0</app.runtime>
-    <mule.maven.plugin.version>4.2.0</mule.maven.plugin.version>
-    
-    <!-- CloudHub 2.0 Deployment Properties -->
-    <cloudhub.target>Cloudhub-US-East-2</cloudhub.target>
-    <cloudhub.replicas>1</cloudhub.replicas>
-    <cloudhub.vcores>0.1</cloudhub.vcores>
-    <mule.env>dev</mule.env>
-    <secure.key>mule</secure.key>
+    <mule.maven.plugin.version>4.6.0</mule.maven.plugin.version>
   </properties>
   
   <build>
@@ -32,42 +25,6 @@
         <extensions>true</extensions>
         <configuration>
           <classifier>mule-application</classifier>
-          
-          <!-- CloudHub 2.0 Deployment Configuration -->
-          <cloudhub2Deployment>
-            <uri>https://anypoint.mulesoft.com</uri>
-            <provider>MC</provider>
-            
-            <!-- Authentication - passed from pipeline -->
-            <connectedAppClientId>${anypointClientId}</connectedAppClientId>
-            <connectedAppClientSecret>${anypointClientSecret}</connectedAppClientSecret>
-            <connectedAppGrantType>client_credentials</connectedAppGrantType>
-            
-            <!-- Application Settings -->
-            <applicationName>${project.artifactId}</applicationName>
-            <environment>${mule.env}</environment>
-            <target>${cloudhub.target}</target>
-            <muleVersion>${app.runtime}</muleVersion>
-            
-            <!-- Resource Allocation -->
-            <replicas>${cloudhub.replicas}</replicas>
-            <vCores>${cloudhub.vcores}</vCores>
-            
-            <!-- Application Properties -->
-            <properties>
-              <mule.env>${mule.env}</mule.env>
-              <secure.key>${secure.key}</secure.key>
-            </properties>
-            
-            <!-- Deployment Settings -->
-            <deploymentTimeout>1000000</deploymentTimeout>
-            <skipDeploymentVerification>false</skipDeploymentVerification>
-            
-            <!-- Integration Options -->
-            <objectStoreV2>true</objectStoreV2>
-            <persistentQueues>false</persistentQueues>
-            <deploymentModel>rolling</deploymentModel>
-          </cloudhub2Deployment>
         </configuration>
       </plugin>
     </plugins>
