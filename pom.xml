@@ -4,19 +4,16 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <groupId>com.mycompany</groupId>
-  <artifactId>azure-project-v73</artifactId>
+  <artifactId>azure-project-v53</artifactId>
   <version>1.0.0-SNAPSHOT</version>
   <packaging>mule-application</packaging>
-  <name>azure-project-v73</name>
+  <name>azure-project-v53</name>
   
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     <app.runtime>4.9.0</app.runtime>
-    <!-- Use version 4.6.0 with proper configuration -->
     <mule.maven.plugin.version>4.6.0</mule.maven.plugin.version>
-    <maven.compiler.source>11</maven.compiler.source>
-    <maven.compiler.target>11</maven.compiler.target>
   </properties>
   
   <build>
@@ -28,56 +25,10 @@
         <extensions>true</extensions>
         <configuration>
           <classifier>mule-application</classifier>
-          <skipMunitTests>true</skipMunitTests>
-          <skipTests>true</skipTests>
-        </configuration>
-      </plugin>
-      
-      <!-- Add maven-compiler-plugin -->
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-compiler-plugin</artifactId>
-        <version>3.11.0</version>
-        <configuration>
-          <source>${maven.compiler.source}</source>
-          <target>${maven.compiler.target}</target>
         </configuration>
       </plugin>
     </plugins>
   </build>
-  
-  <repositories>
-    <repository>
-      <id>anypoint-exchange-v3</id>
-      <name>Anypoint Exchange</name>
-      <url>https://maven.anypoint.mulesoft.com/api/v3/maven</url>
-    </repository>
-    <repository>
-      <id>mulesoft-releases</id>
-      <name>MuleSoft Releases</name>
-      <url>https://repository.mulesoft.org/releases/</url>
-      <releases>
-        <enabled>true</enabled>
-      </releases>
-      <snapshots>
-        <enabled>false</enabled>
-      </snapshots>
-    </repository>
-  </repositories>
-  
-  <pluginRepositories>
-    <pluginRepository>
-      <id>mulesoft-releases</id>
-      <name>MuleSoft Releases</name>
-      <url>https://repository.mulesoft.org/releases/</url>
-      <releases>
-        <enabled>true</enabled>
-      </releases>
-      <snapshots>
-        <enabled>false</enabled>
-      </snapshots>
-    </pluginRepository>
-  </pluginRepositories>
   
   <dependencies>
     <dependency>
@@ -105,4 +56,25 @@
       <classifier>mule-plugin</classifier>
     </dependency>
   </dependencies>
+  
+  <repositories>
+    <repository>
+      <id>anypoint-exchange-v3</id>
+      <name>Anypoint Exchange</name>
+      <url>https://maven.anypoint.mulesoft.com/api/v3/maven</url>
+    </repository>
+    <repository>
+      <id>mulesoft-releases</id>
+      <name>MuleSoft Releases</name>
+      <url>https://repository.mulesoft.org/releases/</url>
+    </repository>
+  </repositories>
+  
+  <pluginRepositories>
+    <pluginRepository>
+      <id>mulesoft-releases</id>
+      <name>MuleSoft Releases</name>
+      <url>https://repository.mulesoft.org/releases/</url>
+    </pluginRepository>
+  </pluginRepositories>
 </project>
