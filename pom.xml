@@ -20,31 +20,49 @@
   </properties>
   
   <build>
-  <plugins>
+    <plugins>
+      <!-- REQUIRED: Base Mule plugin -->
+      <plugin>
+        <groupId>org.mule.tools.maven</groupId>
+        <artifactId>mule-maven-plugin</artifactId>
+        <version>${mule.maven.plugin.version}</version>
+        <extensions>true</extensions>
+        <configuration>
+          <classifier>mule-application</classifier>
+        </configuration>
+      </plugin>
 
-    <!-- REQUIRED: Base Mule plugin -->
-    <plugin>
-      <groupId>org.mule.tools.maven</groupId>
-      <artifactId>mule-maven-plugin</artifactId>
-      <version>${mule.maven.plugin.version}</version>
-      <extensions>true</extensions>
-      <configuration>
-        <classifier>mule-application</classifier>
-      </configuration>
-    </plugin>
+      <!-- Disable normal Maven deploy -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-deploy-plugin</artifactId>
+        <version>3.1.1</version>
+        <configuration>
+          <skip>true</skip>
+        </configuration>
+      </plugin>
 
-    <!-- Disable normal Maven deploy -->
-    <plugin>
-      <groupId>org.apache.maven.plugins</groupId>
-      <artifactId>maven-deploy-plugin</artifactId>
-      <version>3.1.1</version>
-      <configuration>
-        <skip>true</skip>
-      </configuration>
-    </plugin>
-
-  </plugins>
-</build>
+      <!-- ✅ CRITICAL: Disable Exchange plugin -->
+      <plugin>
+        <groupId>org.mule.tools.maven</groupId>
+        <artifactId>exchange-mule-maven-plugin</artifactId>
+        <version>0.1.4</version>
+        <configuration>
+          <skip>true</skip>
+        </configuration>
+        <executions>
+          <execution>
+            <id>default-exchange-pre-deploy</id>
+            <phase>none</phase>
+          </execution>
+          <execution>
+            <id>default-exchange-deploy</id>
+            <phase>none</phase>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
   
   <dependencies>
     <dependency>
@@ -94,52 +112,73 @@
     </pluginRepository>
   </pluginRepositories>
   
-<profiles>
-  <profile>
-    <id>cloudhub2</id>
-    <build>
-      <plugins>
-        <plugin>
-          <groupId>org.mule.tools.maven</groupId>
-          <artifactId>mule-maven-plugin</artifactId>
-          <version>${mule.maven.plugin.version}</version>
-          <extensions>true</extensions>
-          <executions>
-            <execution>
-              <id>cloudhub2-deploy</id>
-              <phase>deploy</phase>
-              <goals>
-                <goal>deploy</goal>
-              </goals>
-              <configuration>
-                <classifier>mule-application</classifier>
-                <cloudHub2Deployment>
-                  <uri>https://anypoint.mulesoft.com</uri>
-                  <provider>MC</provider>
-                  <environment>Sandbox</environment>
-                  <target>Cloudhub-US-East-2</target>
-                  <muleVersion>${app.runtime}</muleVersion>
-                  <applicationName>azure-project-v53</applicationName>
+  <profiles>
+    <profile>
+      <id>cloudhub2</id>
+      <build>
+        <plugins>
+          <!-- ✅ ALSO disable Exchange in profile -->
+          <plugin>
+            <groupId>org.mule.tools.maven</groupId>
+            <artifactId>exchange-mule-maven-plugin</artifactId>
+            <version>0.1.4</version>
+            <configuration>
+              <skip>true</skip>
+            </configuration>
+            <executions>
+              <execution>
+                <id>default-exchange-pre-deploy</id>
+                <phase>none</phase>
+              </execution>
+              <execution>
+                <id>default-exchange-deploy</id>
+                <phase>none</phase>
+              </execution>
+            </executions>
+          </plugin>
 
-                  <!-- Connected App -->
-                  <connectedAppClientId>${anypointClientId}</connectedAppClientId>
-                  <connectedAppClientSecret>${anypointClientSecret}</connectedAppClientSecret>
-                  <connectedAppGrantType>client_credentials</connectedAppGrantType>
+          <!-- CloudHub 2.0 Deployment -->
+          <plugin>
+            <groupId>org.mule.tools.maven</groupId>
+            <artifactId>mule-maven-plugin</artifactId>
+            <version>${mule.maven.plugin.version}</version>
+            <extensions>true</extensions>
+            <executions>
+              <execution>
+                <id>cloudhub2-deploy</id>
+                <phase>deploy</phase>
+                <goals>
+                  <goal>deploy</goal>
+                </goals>
+                <configuration>
+                  <classifier>mule-application</classifier>
+                  <cloudHub2Deployment>
+                    <uri>https://anypoint.mulesoft.com</uri>
+                    <provider>MC</provider>
+                    <environment>Sandbox</environment>
+                    <target>Cloudhub-US-East-2</target>
+                    <muleVersion>${app.runtime}</muleVersion>
+                    <applicationName>azure-project-v53</applicationName>
 
-                  <replicas>1</replicas>
-                  <vCores>0.1</vCores>
+                    <!-- Connected App -->
+                    <connectedAppClientId>${anypointClientId}</connectedAppClientId>
+                    <connectedAppClientSecret>${anypointClientSecret}</connectedAppClientSecret>
+                    <connectedAppGrantType>client_credentials</connectedAppGrantType>
 
-                  <properties>
-                    <mule.env>${mule.env}</mule.env>
-                    <secure.key>${secure.key}</secure.key>
-                  </properties>
-                </cloudHub2Deployment>
-              </configuration>
-            </execution>
-          </executions>
-        </plugin>
-      </plugins>
-    </build>
-  </profile>
-</profiles>
+                    <replicas>1</replicas>
+                    <vCores>0.1</vCores>
+
+                    <properties>
+                      <mule.env>${mule.env}</mule.env>
+                      <secure.key>${secure.key}</secure.key>
+                    </properties>
+                  </cloudHub2Deployment>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
 </project>
