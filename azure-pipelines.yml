@@ -54,7 +54,7 @@ stages:
               jdkArchitectureOption: 'x64'
               jdkSourceOption: 'PreInstalled'
           
-          # Cache Maven dependencies
+          # # Cache Maven dependencies
           # - task: Cache@2
           #   displayName: 'Cache Maven Dependencies'
           #   inputs:
@@ -137,7 +137,6 @@ stages:
               
               if [ $? -eq 0 ]; then
                 echo "✅ Anypoint CLI installed successfully"
-                anypoint-cli --version
               else
                 echo "❌ Failed to install Anypoint CLI"
                 exit 1
