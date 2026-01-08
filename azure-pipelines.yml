@@ -27,7 +27,6 @@ stages:
   displayName: 'Build Mule Application'
   jobs:
   - job: BuildJob
-    displayName: 'Maven Build'
     steps:
 
     - task: DownloadSecureFile@1
@@ -54,70 +53,71 @@ stages:
           -s ~/.m2/settings.xml
       displayName: 'Maven Package'
 
-    - task: CopyFiles@2
-      inputs:
-        Contents: '**/target/*.jar'
-        TargetFolder: $(Build.ArtifactStagingDirectory)
-        flattenFolders: true
-
     - task: PublishPipelineArtifact@1
       inputs:
-        targetPath: $(Build.ArtifactStagingDirectory)
+        targetPath: target
         artifact: mule-app
 
 #####################################################
 # DEPLOY STAGE – CLOUDHUB 2.0
 #####################################################
 - stage: Deploy
-  displayName: 'Deploy to CloudHub 2.0'
   dependsOn: Build
   condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
   jobs:
   - job: DeployJob
-    displayName: 'CloudHub 2.0 Deployment'
     steps:
 
     - task: DownloadPipelineArtifact@2
       inputs:
-        artifactName: 'mule-app'
+        artifactName: mule-app
         targetPath: $(System.DefaultWorkingDirectory)/artifacts
 
     - task: NodeTool@0
       inputs:
         versionSpec: '18.x'
 
-    # ✅ Install CLI WITHOUT calling anypoint-cli yet
     - script: |
         npm install -g anypoint-cli@3
+        anypoint-cli --version
       displayName: 'Install Anypoint CLI'
 
-    # ✅ Deploy with Connected App
+    # 🔐 AUTHENTICATION STEP (THIS WAS MISSING)
+    - script: |
+        set -e
+
+        export ANYPOINT_CLIENT_ID="$(anypointClientId)"
+        export ANYPOINT_CLIENT_SECRET="$(anypointClientSecret)"
+        export ANYPOINT_ORG="$(muleOrgId)"
+        export ANYPOINT_ENV="Sandbox"
+
+        anypoint-cli login \
+          --client_id "$ANYPOINT_CLIENT_ID" \
+          --client_secret "$ANYPOINT_CLIENT_SECRET" \
+          --organization "$ANYPOINT_ORG" \
+          --environment "$ANYPOINT_ENV"
+
+        anypoint-cli account user describe
+      displayName: 'Authenticate with Anypoint'
+      env:
+        anypointClientId: $(anypointClientId)
+        anypointClientSecret: $(anypointClientSecret)
+        muleOrgId: $(muleOrgId)
+
+    # 🚀 DEPLOY
     - script: |
         set -e
 
         JAR_FILE=$(find $(System.DefaultWorkingDirectory)/artifacts -name "*.jar" | head -1)
-
         echo "Deploying $JAR_FILE"
-
-        export ANYPOINT_CLIENT_ID="$(anypointClientId)"
-        export ANYPOINT_CLIENT_SECRET="$(anypointClientSecret)"
 
         anypoint-cli runtime-mgr application deploy \
           "$(APP_NAME)" \
           "$(CLOUDHUB_TARGET)" \
           "$(RUNTIME_VERSION)" \
           "$JAR_FILE" \
-          --client_id "$ANYPOINT_CLIENT_ID" \
-          --client_secret "$ANYPOINT_CLIENT_SECRET" \
-          --organization "$(muleOrgId)" \
-          --environment "Sandbox" \
           --replicas $(REPLICAS) \
           --replicaSize $(REPLICA_SIZE) \
           --property mule.env=dev \
-          --property secure.key=mule \
-          --output json
+          --property secure.key=mule
       displayName: 'Deploy to CloudHub 2.0'
-      env:
-        anypointClientId: $(anypointClientId)
-        anypointClientSecret: $(anypointClientSecret)
-        muleOrgId: $(muleOrgId)
