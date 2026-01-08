@@ -68,8 +68,11 @@ stages:
       displayName: Install settings.xml
 
     - task: JavaToolInstaller@0
+      displayName: 'Setup Java 17'
       inputs:
         versionSpec: '17'
+        jdkArchitectureOption: 'x64'
+        jdkSourceOption: 'PreInstalled'
 
     - script: |
         mvn deploy \
