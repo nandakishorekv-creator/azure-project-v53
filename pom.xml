@@ -13,7 +13,10 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     <app.runtime>4.9.0</app.runtime>
-    <mule.maven.plugin.version>3.9.4</mule.maven.plugin.version> <!-- Downgraded to compatible version -->
+    <!-- Use version 4.6.0 with proper configuration -->
+    <mule.maven.plugin.version>4.6.0</mule.maven.plugin.version>
+    <maven.compiler.source>11</maven.compiler.source>
+    <maven.compiler.target>11</maven.compiler.target>
   </properties>
   
   <build>
@@ -25,22 +28,24 @@
         <extensions>true</extensions>
         <configuration>
           <classifier>mule-application</classifier>
-          <!-- ✅ ADD THESE CONFIGURATIONS -->
-          <muleRuntimeBundles>
-            <muleRuntimeBundle>
-              <groupId>com.mulesoft.mule.distributions</groupId>
-              <artifactId>mule-enterprise-standalone</artifactId>
-              <version>${app.runtime}</version>
-              <type>zip</type>
-              <classifier>mule-enterprise-standalone</classifier>
-            </muleRuntimeBundle>
-          </muleRuntimeBundles>
+          <skipMunitTests>true</skipMunitTests>
+          <skipTests>true</skipTests>
+        </configuration>
+      </plugin>
+      
+      <!-- Add maven-compiler-plugin -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>3.11.0</version>
+        <configuration>
+          <source>${maven.compiler.source}</source>
+          <target>${maven.compiler.target}</target>
         </configuration>
       </plugin>
     </plugins>
   </build>
   
-  <!-- ✅ ADD THIS REPOSITORY SECTION FOR MULE RUNTIME -->
   <repositories>
     <repository>
       <id>anypoint-exchange-v3</id>
@@ -51,30 +56,28 @@
       <id>mulesoft-releases</id>
       <name>MuleSoft Releases</name>
       <url>https://repository.mulesoft.org/releases/</url>
-    </repository>
-    <repository>
-      <id>mulesoft-private</id>
-      <name>MuleSoft Private Repository</name>
-      <url>https://repository.mulesoft.org/nexus-ee/content/repositories/releases-ee/</url>
+      <releases>
+        <enabled>true</enabled>
+      </releases>
+      <snapshots>
+        <enabled>false</enabled>
+      </snapshots>
     </repository>
   </repositories>
   
-  <!-- ✅ ADD THIS PLUGIN REPOSITORY -->
   <pluginRepositories>
     <pluginRepository>
       <id>mulesoft-releases</id>
       <name>MuleSoft Releases</name>
       <url>https://repository.mulesoft.org/releases/</url>
+      <releases>
+        <enabled>true</enabled>
+      </releases>
+      <snapshots>
+        <enabled>false</enabled>
+      </snapshots>
     </pluginRepository>
   </pluginRepositories>
-  
-  <!-- ✅ ADD DISTRIBUTION MANAGEMENT FOR RUNTIME -->
-  <distributionManagement>
-    <repository>
-      <id>anypoint-exchange-v3</id>
-      <url>https://maven.anypoint.mulesoft.com/api/v3/maven</url>
-    </repository>
-  </distributionManagement>
   
   <dependencies>
     <dependency>
