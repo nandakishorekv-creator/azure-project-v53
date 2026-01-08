@@ -27,10 +27,14 @@ stages:
         mkdir -p ~/.m2
         cp $(mavenSettings.secureFilePath) ~/.m2/settings.xml
       displayName: Install settings.xml
-
+      
     - task: JavaToolInstaller@0
+      displayName: 'Setup Java 17'
       inputs:
         versionSpec: '17'
+        jdkArchitectureOption: 'x64'
+        jdkSourceOption: 'PreInstalled'
+
 
     - script: |
         mvn clean package \
