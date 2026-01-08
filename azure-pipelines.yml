@@ -87,7 +87,7 @@ stages:
               fi
             displayName: 'Maven Package'
           
-          # Copy artifacts (optional - for backup/audit)
+          # Copy artifacts
           - task: CopyFiles@2
             displayName: 'Copy Artifacts'
             inputs:
@@ -96,7 +96,7 @@ stages:
               CleanTargetFolder: true
               flattenFolders: true
           
-          # Publish artifacts (optional - for backup/audit)
+          # Publish artifacts
           - task: PublishPipelineArtifact@1
             displayName: 'Publish Artifacts'
             inputs:
@@ -105,7 +105,7 @@ stages:
               publishLocation: 'pipeline'
 
   #####################################################
-  # DEPLOY STAGE - CloudHub 2.0 via Maven Plugin
+  # DEPLOY STAGE - CloudHub 2.0
   #####################################################
   - stage: Deploy
     displayName: 'Deploy to CloudHub 2.0'
@@ -115,71 +115,78 @@ stages:
       - job: DeployJob
         displayName: 'CloudHub 2.0 Deployment'
         steps:
-          # Download settings.xml
-          - task: DownloadSecureFile@1
-            name: mavenSettings
-            displayName: 'Download Maven Settings'
+          # Download artifacts
+          - task: DownloadPipelineArtifact@2
+            displayName: 'Download Build Artifacts'
             inputs:
-              secureFile: 'settings.xml'
+              artifactName: 'mule-app'
+              targetPath: $(System.DefaultWorkingDirectory)/artifacts
           
-          # Install settings.xml
-          - script: |
-              echo "📦 Installing Maven settings..."
-              mkdir -p ~/.m2
-              cp $(mavenSettings.secureFilePath) ~/.m2/settings.xml
-              echo "✅ Settings installed"
-            displayName: 'Install Maven Settings'
-          
-          # Setup Java 17
-          - task: JavaToolInstaller@0
-            displayName: 'Setup Java 17'
+          # Install Node.js
+          - task: NodeTool@0
+            displayName: 'Install Node.js'
             inputs:
-              versionSpec: '17'
-              jdkArchitectureOption: 'x64'
-              jdkSourceOption: 'PreInstalled'
+              versionSpec: '18.x'
           
-          # Cache Maven dependencies
-          - task: Cache@2
-            displayName: 'Cache Maven Dependencies'
-            inputs:
-              key: 'maven | "$(Agent.OS)" | **/pom.xml'
-              restoreKeys: |
-                maven | "$(Agent.OS)"
-                maven
-              path: $(MAVEN_CACHE_FOLDER)
-          
-          # Deploy to CloudHub 2.0 using Maven Plugin
+          # Install Anypoint CLI
           - script: |
               echo "=========================================="
-              echo " CloudHub 2.0 Deployment via Maven"
+              echo " Installing Anypoint CLI"
+              echo "=========================================="
+              npm install -g anypoint-cli@latest
+              
+              if [ $? -eq 0 ]; then
+                echo "✅ Anypoint CLI installed successfully"
+              else
+                echo "❌ Failed to install Anypoint CLI"
+                exit 1
+              fi
+            displayName: 'Install Anypoint CLI'
+          
+          # Deploy to CloudHub 2.0
+          - script: |
+              echo "=========================================="
+              echo " CloudHub 2.0 Deployment"
               echo "=========================================="
               echo "Application: $(APP_NAME)"
               echo "Runtime: $(RUNTIME_VERSION)"
               echo "Target: $(CLOUDHUB_TARGET)"
-              echo "Environment: Sandbox"
               echo "Organization: $(muleOrg)"
               echo "Replicas: $(REPLICAS)"
               echo "vCores: $(VCORES)"
               echo ""
+              
+              # Find the JAR file
+              JAR_FILE=$(find $(System.DefaultWorkingDirectory)/artifacts -name "*.jar" -type f | head -1)
+              
+              if [ -z "$JAR_FILE" ]; then
+                echo "❌ ERROR: JAR file not found!"
+                exit 1
+              fi
+              
+              echo "📦 JAR File: $JAR_FILE"
+              echo "📦 File Size: $(du -h "$JAR_FILE" | cut -f1)"
+              echo ""
+              
+              # Deploy using Anypoint CLI with environment variables
               echo "🚀 Starting deployment..."
               echo ""
               
-              # Set credentials as environment variables
               export ANYPOINT_CLIENT_ID="$(anypointClientId)"
               export ANYPOINT_CLIENT_SECRET="$(anypointClientSecret)"
               
-              # Deploy using Maven Mule Plugin
-              mvn deploy -DmuleDeploy \
-                -Danypoint.client.id="${ANYPOINT_CLIENT_ID}" \
-                -Danypoint.client.secret="${ANYPOINT_CLIENT_SECRET}" \
-                -Dmule.env=Sandbox \
-                -Dcloudhub.target="$(CLOUDHUB_TARGET)" \
-                -Dcloudhub.replicas=$(REPLICAS) \
-                -Dcloudhub.vcores=$(VCORES) \
-                -Dapp.runtime=$(RUNTIME_VERSION) \
-                -Dsecure.key=mule \
-                -DskipTests \
-                -s ~/.m2/settings.xml
+              anypoint-cli runtime-mgr cloudhub2-application deploy \
+                --client_id "$ANYPOINT_CLIENT_ID" \
+                --client_secret "$ANYPOINT_CLIENT_SECRET" \
+                $(APP_NAME) \
+                "$JAR_FILE" \
+                --target $(CLOUDHUB_TARGET) \
+                --runtime-version $(RUNTIME_VERSION) \
+                --replicas $(REPLICAS) \
+                --vcores $(VCORES) \
+                --property "mule.env=dev" \
+                --property "secure.key=mule" \
+                --output json
               
               DEPLOY_EXIT_CODE=$?
               
@@ -197,29 +204,18 @@ stages:
                 echo "🌐 Check status at:"
                 echo "   https://anypoint.mulesoft.com/cloudhub"
                 echo ""
-                echo "📊 Application Details:"
-                echo "   - Runtime: $(RUNTIME_VERSION)"
-                echo "   - Replicas: $(REPLICAS)"
-                echo "   - vCores: $(VCORES)"
-                echo ""
               else
                 echo "=========================================="
                 echo " ❌ DEPLOYMENT FAILED"
                 echo "=========================================="
                 echo ""
                 echo "Exit Code: $DEPLOY_EXIT_CODE"
-                echo ""
-                echo "Common Issues:"
-                echo "  1. Check Anypoint credentials are valid"
-                echo "  2. Verify target '$(CLOUDHUB_TARGET)' exists"
-                echo "  3. Ensure environment 'Sandbox' is correct"
-                echo "  4. Check application name is unique or update existing"
-                echo ""
                 exit 1
               fi
               
-            displayName: 'Deploy via Maven Plugin'
+            displayName: 'Deploy to CloudHub 2.0'
             env:
               anypointClientId: $(anypointClientId)
               anypointClientSecret: $(anypointClientSecret)
               muleOrg: $(muleOrg)
+              muleOrgId: $(muleOrgId)
