@@ -14,8 +14,8 @@ variables:
     value: $(projectName)
   - name: RUNTIME_VERSION
     value: '4.9.0'
-  - name: CLOUDHUB_REGION
-    value: 'us-east-2'
+  - name: CLOUDHUB_TARGET
+    value: 'CloudHub-US-East-2'
   - name: REPLICAS
     value: '1'
   - name: VCORES
@@ -55,14 +55,14 @@ stages:
               jdkSourceOption: 'PreInstalled'
           
           # Cache Maven dependencies
-          - task: Cache@2
-            displayName: 'Cache Maven Dependencies'
-            inputs:
-              key: 'maven | "$(Agent.OS)" | **/pom.xml'
-              restoreKeys: |
-                maven | "$(Agent.OS)"
-                maven
-              path: $(MAVEN_CACHE_FOLDER)
+          # - task: Cache@2
+          #   displayName: 'Cache Maven Dependencies'
+          #   inputs:
+          #     key: 'maven | "$(Agent.OS)" | **/pom.xml'
+          #     restoreKeys: |
+          #       maven | "$(Agent.OS)"
+          #       maven
+          #     path: $(MAVEN_CACHE_FOLDER)
           
           # Maven Build
           - script: |
@@ -105,15 +105,15 @@ stages:
               publishLocation: 'pipeline'
 
   #####################################################
-  # DEPLOY STAGE - CloudHub 2.0
+  # DEPLOY STAGE - CloudHub 1.0
   #####################################################
   - stage: Deploy
-    displayName: 'Deploy to CloudHub 2.0'
+    displayName: 'Deploy to CloudHub 1.0'
     dependsOn: Build
     condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
     jobs:
       - job: DeployJob
-        displayName: 'CloudHub 2.0 Deployment'
+        displayName: 'CloudHub 1.0 Deployment'
         steps:
           # Download artifacts
           - task: DownloadPipelineArtifact@2
@@ -137,13 +137,13 @@ stages:
               
               if [ $? -eq 0 ]; then
                 echo "✅ Anypoint CLI installed successfully"
+                anypoint-cli --version
               else
                 echo "❌ Failed to install Anypoint CLI"
                 exit 1
               fi
             displayName: 'Install Anypoint CLI'
           
-          # Deploy to CloudHub
           # Deploy to CloudHub 1.0
           - script: |
               echo "=========================================="
@@ -151,7 +151,7 @@ stages:
               echo "=========================================="
               echo "Application: $(APP_NAME)"
               echo "Runtime: $(RUNTIME_VERSION)"
-              echo "Target: cloudHub-us-east-2"
+              echo "Target: $(CLOUDHUB_TARGET)"
               echo "Organization: $(muleOrg)"
               echo "Workers: $(REPLICAS)"
               echo "Worker Size: $(VCORES) vCores"
@@ -169,7 +169,7 @@ stages:
               echo "📦 File Size: $(du -h "$JAR_FILE" | cut -f1)"
               echo ""
               
-              # Set credentials
+              # Set credentials as environment variables
               export ANYPOINT_CLIENT_ID="$(anypointClientId)"
               export ANYPOINT_CLIENT_SECRET="$(anypointClientSecret)"
               export ANYPOINT_ORG="$(muleOrgId)"
@@ -177,11 +177,11 @@ stages:
               echo "🚀 Starting deployment to CloudHub 1.0..."
               echo ""
               
-              # ✅ CloudHub 1.0 deployment command
+              # CloudHub 1.0 deployment command
               anypoint-cli runtime-mgr cloudhub-application deploy \
                 $(APP_NAME) \
                 "$JAR_FILE" \
-                --target CloudHub-US-East-2 \
+                --target $(CLOUDHUB_TARGET) \
                 --runtime $(RUNTIME_VERSION) \
                 --workers $(REPLICAS) \
                 --workerSize $(VCORES) \
@@ -198,17 +198,37 @@ stages:
                 echo "=========================================="
                 echo ""
                 echo "Application: $(APP_NAME)"
-                echo "Target: CloudHub 1.0 (US-East-2)"
+                echo "Target: $(CLOUDHUB_TARGET)"
+                echo "Organization: $(muleOrg)"
                 echo ""
                 echo "🌐 Check status at:"
                 echo "   https://anypoint.mulesoft.com/cloudhub"
                 echo ""
+                
+                # Display application status
+                echo "🔍 Checking application status..."
+                sleep 10
+                anypoint-cli runtime-mgr cloudhub-application describe $(APP_NAME) --output json | jq -r '.status' || echo "Status check skipped (jq not available)"
+                
               else
                 echo "=========================================="
                 echo " ❌ DEPLOYMENT FAILED"
                 echo "=========================================="
                 echo ""
                 echo "Exit Code: $DEPLOY_EXIT_CODE"
+                echo ""
+                echo "💡 Troubleshooting tips:"
+                echo "1. Check if application name is unique"
+                echo "2. Verify Connected App has Runtime Manager scopes:"
+                echo "   - View Applications"
+                echo "   - Manage Applications"
+                echo "   - Manage Settings"
+                echo "3. Check if target is correct: $(CLOUDHUB_TARGET)"
+                echo "   Valid targets: CloudHub-US-East-1, CloudHub-US-East-2, CloudHub-US-West-1, etc."
+                echo "4. Verify runtime version is supported: $(RUNTIME_VERSION)"
+                echo "5. Ensure worker size is valid: $(VCORES) vCores"
+                echo "   Supported sizes: 0.1, 0.2, 1, 2, 4, 8, 16"
+                echo ""
                 exit 1
               fi
               
