@@ -1,253 +1,83 @@
-# Azure Pipelines YAML for MuleSoft Projects
-# ✅ FIXED: CloudHub 2.0 Deployment using Maven
-# ✅ FIXED: Target Name Casing (Cloudhub-US-East-2)
-
 trigger:
   branches:
     include:
-      - '*'
+      - main
 
 pool:
-  vmImage: 'ubuntu-latest'
+  vmImage: ubuntu-latest
 
 variables:
   - group: build.variables
   - name: MAVEN_CACHE_FOLDER
     value: $(Pipeline.Workspace)/.m2/repository
-  - name: MAVEN_HOME
-    value: /opt/maven
-  - name: MAVEN_VERSION
-    value: '3.9.10'
-  - name: APP_NAME
-    value: $(projectName)
-  - name: RUNTIME_VERSION
-    value: '4.9.0'
-  # ✅ FIXED: CloudHub 2.0 Target IDs are Case Sensitive!
-  - name: CLOUDHUB_TARGET
-    value: 'Cloudhub-US-East-2' 
 
 stages:
-  #####################################################
-  # BUILD STAGE
-  #####################################################
-  - stage: Build
-    displayName: 'Build Application'
-    jobs:
-      - job: BuildJob
-        displayName: 'Maven Build'
-        steps:
-          # =============================================
-          # STEP 1: Download settings.xml
-          # =============================================
-          - task: DownloadSecureFile@1
-            name: mavenSettings
-            displayName: 'Download Maven Settings'
-            inputs:
-              secureFile: 'settings.xml'
-          
-          # =============================================
-          # STEP 2: Install settings.xml
-          # =============================================
-          - script: |
-              echo "📦 Installing Maven settings..."
-              mkdir -p ~/.m2
-              cp $(mavenSettings.secureFilePath) ~/.m2/settings.xml
-              echo "✅ Settings installed"
-            displayName: 'Install Maven Settings'
-          
-          # =============================================
-          # STEP 3: Setup Java 17
-          # =============================================
-          - task: JavaToolInstaller@0
-            displayName: 'Setup Java 17'
-            inputs:
-              versionSpec: '17'
-              jdkArchitectureOption: 'x64'
-              jdkSourceOption: 'PreInstalled'
-          
-          # =============================================
-          # STEP 4: Cache Maven Dependencies
-          # =============================================
-          - task: Cache@2
-            displayName: 'Cache Maven Dependencies'
-            inputs:
-              key: 'maven | "$(Agent.OS)" | **/pom.xml'
-              restoreKeys: |
-                maven | "$(Agent.OS)"
-                maven
-              path: $(MAVEN_CACHE_FOLDER)
-          
-          # =============================================
-          # STEP 5: Maven Package
-          # =============================================
-          - script: |
-              echo "=========================================="
-              echo " Building Mule Application"
-              echo "=========================================="
-              
-              mvn clean package \
-                -DskipTests \
-                -Dsecure.key=mule \
-                -Dmule.env=dev \
-                -s ~/.m2/settings.xml
-              
-              if [ $? -eq 0 ]; then
-                echo ""
-                echo "✅ BUILD SUCCESSFUL"
-                ls -lh target/*.jar
-              else
-                echo "❌ BUILD FAILED"
-                exit 1
-              fi
-            displayName: 'Maven Package'
-          
-          # =============================================
-          # STEP 6: Publish Artifacts
-          # =============================================
-          - task: CopyFiles@2
-            displayName: 'Copy Artifacts'
-            inputs:
-              Contents: |
-                **/target/*.jar
-                pom.xml
-              TargetFolder: $(Build.ArtifactStagingDirectory)
-              CleanTargetFolder: true
-              flattenFolders: false
-          
-          - task: PublishPipelineArtifact@1
-            displayName: 'Publish Artifacts'
-            inputs:
-              targetPath: $(Build.ArtifactStagingDirectory)
-              artifact: 'drop'
-              publishLocation: 'pipeline'
+# ================= BUILD =================
+- stage: Build
+  displayName: Build Mule App
+  jobs:
+  - job: BuildJob
+    steps:
+    - task: DownloadSecureFile@1
+      name: mavenSettings
+      inputs:
+        secureFile: settings.xml
 
-  #####################################################
-  # DEPLOY STAGE: CloudHub 2.0
-  #####################################################
-  - stage: Deploy
-    displayName: 'Deploy to CloudHub 2.0'
-    dependsOn: Build
-    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
-    jobs:
-      - job: DeployToCloudHub
-        displayName: 'Deploy to CloudHub Sandbox'
-        steps:
-          # =============================================
-          # STEP 1: Checkout Code
-          # =============================================
-          - checkout: self
-            displayName: 'Checkout Source Code'
-            clean: true
-          
-          # =============================================
-          # STEP 2: Download settings.xml
-          # =============================================
-          - task: DownloadSecureFile@1
-            name: mavenSettingsDeploy
-            displayName: 'Download Maven Settings'
-            inputs:
-              secureFile: 'settings.xml'
-          
-          - script: |
-              echo "📦 Installing settings.xml..."
-              mkdir -p ~/.m2
-              cp $(mavenSettingsDeploy.secureFilePath) ~/.m2/settings.xml
-            displayName: 'Install Maven Settings'
-          
-          # =============================================
-          # STEP 3: Setup Java 17
-          # =============================================
-          - task: JavaToolInstaller@0
-            displayName: 'Install Java 17'
-            inputs:
-              versionSpec: '17'
-              jdkArchitectureOption: 'x64'
-              jdkSourceOption: 'PreInstalled'
-          
-          # =============================================
-          # STEP 4: Install Maven 3.9.10
-          # =============================================
-          - script: |
-              set -e
-              echo "🔧 Installing Maven $(MAVEN_VERSION)..."
-              MAVEN_ARCHIVE="maven.tar.gz"
-              
-              # Using repo.maven.apache.org (Fastest)
-              wget --progress=dot:giga -O "$MAVEN_ARCHIVE" "https://repo.maven.apache.org/maven2/org/apache/maven/apache-maven/$(MAVEN_VERSION)/apache-maven-$(MAVEN_VERSION)-bin.tar.gz"
-              
-              tar -xzf "$MAVEN_ARCHIVE"
-              sudo rm -rf $(MAVEN_HOME) 2>/dev/null || true
-              sudo mv apache-maven-$(MAVEN_VERSION) $(MAVEN_HOME)
-              sudo chmod -R 755 $(MAVEN_HOME)
-              rm -f "$MAVEN_ARCHIVE"
-              
-              echo "✅ Maven Installed:"
-              $(MAVEN_HOME)/bin/mvn --version
-            displayName: 'Install Maven 3.9.10'
-          
-          # =============================================
-          # STEP 5: Cache Maven Dependencies
-          # =============================================
-          - task: Cache@2
-            displayName: 'Cache Maven Dependencies'
-            inputs:
-              key: 'maven | "$(Agent.OS)" | **/pom.xml'
-              restoreKeys: |
-                maven | "$(Agent.OS)"
-                maven
-              path: $(MAVEN_CACHE_FOLDER)
-          
-          # =============================================
-          # STEP 6: Deploy to CloudHub 2.0 (Maven)
-          # =============================================
-          - script: |
-              export M2_HOME=$(MAVEN_HOME)
-              export PATH=$(MAVEN_HOME)/bin:$PATH
-              
-              echo "=================================================="
-              echo " CloudHub 2.0 Deployment"
-              echo "=================================================="
-              echo "Application: $(APP_NAME)"
-              echo "Target: $(CLOUDHUB_TARGET)"
-              echo ""
-              
-              # Verify POM exists
-              if [ ! -f pom.xml ]; then
-                echo "❌ ERROR: pom.xml not found. Ensure checkout step is correct."
-                exit 1
-              fi
+    - script: |
+        mkdir -p ~/.m2
+        cp $(mavenSettings.secureFilePath) ~/.m2/settings.xml
+      displayName: Install settings.xml
 
-              echo "🚀 Starting Maven Deployment..."
-              
-              # ✅ Deploy using Maven
-              # This triggers the <profile id="cloudhub2"> in your pom.xml
-              # It passes the Client ID/Secret to the variables defined in your POM
-              mvn clean deploy \
-                -Pcloudhub2 \
-                -Dmule.version=$(RUNTIME_VERSION) \
-                -DanypointClientId=$(anypointClientId) \
-                -DanypointClientSecret=$(anypointClientSecret) \
-                -Dmule.env=dev \
-                -Dsecure.key=mule \
-                -DskipTests \
-                -Dmaven.repo.local=$(MAVEN_CACHE_FOLDER) \
-                -s ~/.m2/settings.xml \
-                -e
-              
-              if [ $? -eq 0 ]; then
-                echo ""
-                echo "=========================================="
-                echo " ✅ DEPLOYMENT SUCCESSFUL"
-                echo "=========================================="
-              else
-                echo ""
-                echo "❌ DEPLOYMENT FAILED"
-                exit 1
-              fi
-              
-            displayName: 'Deploy to CloudHub 2.0'
-            env:
-              M2_HOME: $(MAVEN_HOME)
-              # Securely pass secrets to the script
-              anypointClientId: $(anypointClientId)
-              anypointClientSecret: $(anypointClientSecret)
+    - task: JavaToolInstaller@0
+      inputs:
+        versionSpec: '17'
+
+    - script: |
+        mvn clean package \
+          -DskipTests \
+          -Dmule.env=dev \
+          -Dsecure.key=mule \
+          -s ~/.m2/settings.xml
+      displayName: Maven Package
+
+    - task: PublishPipelineArtifact@1
+      inputs:
+        targetPath: target
+        artifact: mule-app
+
+# ================= DEPLOY =================
+- stage: Deploy
+  dependsOn: Build
+  condition: succeeded()
+  jobs:
+  - job: DeployJob
+    steps:
+    - task: DownloadPipelineArtifact@2
+      inputs:
+        artifact: mule-app
+        path: target
+
+    - task: DownloadSecureFile@1
+      name: mavenSettingsDeploy
+      inputs:
+        secureFile: settings.xml
+
+    - script: |
+        mkdir -p ~/.m2
+        cp $(mavenSettingsDeploy.secureFilePath) ~/.m2/settings.xml
+      displayName: Install settings.xml
+
+    - task: JavaToolInstaller@0
+      inputs:
+        versionSpec: '17'
+
+    - script: |
+        mvn deploy \
+          -Pcloudhub2 \
+          -DanypointClientId=$(anypointClientId) \
+          -DanypointClientSecret=$(anypointClientSecret) \
+          -Dmule.env=dev \
+          -Dsecure.key=mule \
+          -DskipTests \
+          -s ~/.m2/settings.xml
+      displayName: Deploy to CloudHub 2.0
