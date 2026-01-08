@@ -151,7 +151,7 @@ stages:
               echo "=========================================="
               echo "Application: $(APP_NAME)"
               echo "Runtime: $(RUNTIME_VERSION)"
-              echo "Target: CloudHub-US-East-2"
+              echo "Target: cloudHub-us-east-2"
               echo "Organization: $(muleOrg)"
               echo "Workers: $(REPLICAS)"
               echo "Worker Size: $(VCORES) vCores"
