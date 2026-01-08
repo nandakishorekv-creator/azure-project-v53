@@ -64,19 +64,6 @@ stages:
                 maven
               path: $(MAVEN_CACHE_FOLDER)
           
-          # Verify environment
-          - script: |
-              echo "=========================================="
-              echo " Build Environment"
-              echo "=========================================="
-              echo "Java Version:"
-              java -version
-              echo ""
-              echo "Maven Version:"
-              mvn -version
-              echo ""
-            displayName: 'Verify Environment'
-          
           # Maven Build
           - script: |
               echo "=========================================="
@@ -149,8 +136,7 @@ stages:
               npm install -g anypoint-cli@latest
               
               if [ $? -eq 0 ]; then
-                echo "✅ Anypoint CLI installed"
-                anypoint-cli --version
+                echo "✅ Anypoint CLI installed successfully"
               else
                 echo "❌ Failed to install Anypoint CLI"
                 exit 1
@@ -165,6 +151,7 @@ stages:
               echo "Application: $(APP_NAME)"
               echo "Runtime: $(RUNTIME_VERSION)"
               echo "Target: $(CLOUDHUB_TARGET)"
+              echo "Organization: $(muleOrg)"
               echo "Replicas: $(REPLICAS)"
               echo "vCores: $(VCORES)"
               echo ""
@@ -178,13 +165,19 @@ stages:
               fi
               
               echo "📦 JAR File: $JAR_FILE"
+              echo "📦 File Size: $(du -h "$JAR_FILE" | cut -f1)"
               echo ""
               
-              # Deploy using Anypoint CLI
+              # Deploy using Anypoint CLI with environment variables
               echo "🚀 Starting deployment..."
+              echo ""
+              
+              export ANYPOINT_CLIENT_ID="$(anypointClientId)"
+              export ANYPOINT_CLIENT_SECRET="$(anypointClientSecret)"
+              
               anypoint-cli runtime-mgr cloudhub2-application deploy \
-                --client_id $(anypointClientId) \
-                --client_secret $(anypointClientSecret) \
+                --client_id "$ANYPOINT_CLIENT_ID" \
+                --client_secret "$ANYPOINT_CLIENT_SECRET" \
                 $(APP_NAME) \
                 "$JAR_FILE" \
                 --target $(CLOUDHUB_TARGET) \
@@ -192,7 +185,8 @@ stages:
                 --replicas $(REPLICAS) \
                 --vcores $(VCORES) \
                 --property "mule.env=dev" \
-                --property "secure.key=mule"
+                --property "secure.key=mule" \
+                --output json
               
               DEPLOY_EXIT_CODE=$?
               
@@ -205,6 +199,7 @@ stages:
                 echo "Application: $(APP_NAME)"
                 echo "Environment: Sandbox"
                 echo "Target: $(CLOUDHUB_TARGET)"
+                echo "Organization: $(muleOrg)"
                 echo ""
                 echo "🌐 Check status at:"
                 echo "   https://anypoint.mulesoft.com/cloudhub"
@@ -213,6 +208,8 @@ stages:
                 echo "=========================================="
                 echo " ❌ DEPLOYMENT FAILED"
                 echo "=========================================="
+                echo ""
+                echo "Exit Code: $DEPLOY_EXIT_CODE"
                 exit 1
               fi
               
@@ -220,3 +217,5 @@ stages:
             env:
               anypointClientId: $(anypointClientId)
               anypointClientSecret: $(anypointClientSecret)
+              muleOrg: $(muleOrg)
+              muleOrgId: $(muleOrgId)
