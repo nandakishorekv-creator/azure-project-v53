@@ -104,118 +104,118 @@ stages:
               artifact: 'mule-app'
               publishLocation: 'pipeline'
 
-  #####################################################
-  # DEPLOY STAGE - CloudHub 2.0
-  #####################################################
-  - stage: Deploy
-    displayName: 'Deploy to CloudHub 2.0'
-    dependsOn: Build
-    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
-    jobs:
-      - job: DeployJob
-        displayName: 'CloudHub 2.0 Deployment'
-        steps:
-          # Download artifacts
-          - task: DownloadPipelineArtifact@2
-            displayName: 'Download Build Artifacts'
-            inputs:
-              artifactName: 'mule-app'
-              targetPath: $(System.DefaultWorkingDirectory)/artifacts
-          
-          # Install Node.js
-          - task: NodeTool@0
-            displayName: 'Install Node.js'
-            inputs:
-              versionSpec: '18.x'
-          
-          # Install Anypoint CLI
-          - script: |
-              echo "=========================================="
-              echo " Installing Anypoint CLI"
-              echo "=========================================="
-              npm install -g anypoint-cli@latest
-              
-              if [ $? -eq 0 ]; then
-                echo "✅ Anypoint CLI installed successfully"
-              else
-                echo "❌ Failed to install Anypoint CLI"
-                exit 1
-              fi
-            displayName: 'Install Anypoint CLI'
-          
-          # Deploy to CloudHub 2.0
-          - script: |
-              echo "=========================================="
-              echo " CloudHub 2.0 Deployment"
-              echo "=========================================="
-              echo "Application: $(APP_NAME)"
-              echo "Runtime: $(RUNTIME_VERSION)"
-              echo "Target: $(CLOUDHUB_TARGET)"
-              echo "Organization: $(muleOrg)"
-              echo "Replicas: $(REPLICAS)"
-              echo "vCores: $(VCORES)"
-              echo ""
-              
-              # Find the JAR file
-              JAR_FILE=$(find $(System.DefaultWorkingDirectory)/artifacts -name "*.jar" -type f | head -1)
-              
-              if [ -z "$JAR_FILE" ]; then
-                echo "❌ ERROR: JAR file not found!"
-                exit 1
-              fi
-              
-              echo "📦 JAR File: $JAR_FILE"
-              echo "📦 File Size: $(du -h "$JAR_FILE" | cut -f1)"
-              echo ""
-              
-              # Deploy using Anypoint CLI with environment variables
-              echo "🚀 Starting deployment..."
-              echo ""
-              
-              export ANYPOINT_CLIENT_ID="$(anypointClientId)"
-              export ANYPOINT_CLIENT_SECRET="$(anypointClientSecret)"
-              
-              anypoint-cli runtime-mgr cloudhub2-application deploy \
-                --client_id "$ANYPOINT_CLIENT_ID" \
-                --client_secret "$ANYPOINT_CLIENT_SECRET" \
-                $(APP_NAME) \
-                "$JAR_FILE" \
-                --target $(CLOUDHUB_TARGET) \
-                --runtime-version $(RUNTIME_VERSION) \
-                --replicas $(REPLICAS) \
-                --vcores $(VCORES) \
-                --property "mule.env=dev" \
-                --property "secure.key=mule" \
-                --output json
-              
-              DEPLOY_EXIT_CODE=$?
-              
-              echo ""
-              if [ $DEPLOY_EXIT_CODE -eq 0 ]; then
-                echo "=========================================="
-                echo " ✅ DEPLOYMENT SUCCESSFUL!"
-                echo "=========================================="
-                echo ""
-                echo "Application: $(APP_NAME)"
-                echo "Environment: Sandbox"
-                echo "Target: $(CLOUDHUB_TARGET)"
-                echo "Organization: $(muleOrg)"
-                echo ""
-                echo "🌐 Check status at:"
-                echo "   https://anypoint.mulesoft.com/cloudhub"
-                echo ""
-              else
-                echo "=========================================="
-                echo " ❌ DEPLOYMENT FAILED"
-                echo "=========================================="
-                echo ""
-                echo "Exit Code: $DEPLOY_EXIT_CODE"
-                exit 1
-              fi
-              
+        #####################################################
+          # DEPLOY STAGE: CloudHub 2.0 (Using Maven)
+          #####################################################
+          - stage: Deploy
             displayName: 'Deploy to CloudHub 2.0'
-            env:
-              anypointClientId: $(anypointClientId)
-              anypointClientSecret: $(anypointClientSecret)
-              muleOrg: $(muleOrg)
-              muleOrgId: $(muleOrgId)
+            dependsOn: Build
+            condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+            jobs:
+              - job: DeployToCloudHub
+                displayName: 'Deploy to CloudHub Sandbox'
+                steps:
+                  # =============================================
+                  # STEP 1: Checkout Code
+                  # =============================================
+                  - checkout: self
+                    displayName: 'Checkout Source Code'
+                    clean: true
+                  
+                  # =============================================
+                  # STEP 2: Download settings.xml
+                  # =============================================
+                  - task: DownloadSecureFile@1
+                    name: mavenSettingsDeploy
+                    displayName: 'Download Maven Settings'
+                    inputs:
+                      secureFile: 'settings.xml'
+                  
+                  - script: |
+                      echo "📦 Installing settings.xml..."
+                      mkdir -p ~/.m2
+                      cp $(mavenSettingsDeploy.secureFilePath) ~/.m2/settings.xml
+                    displayName: 'Install Maven Settings'
+                  
+                  # =============================================
+                  # STEP 3: Setup Java 17
+                  # =============================================
+                  - task: JavaToolInstaller@0
+                    displayName: 'Install Java 17'
+                    inputs:
+                      versionSpec: '17'
+                      jdkArchitectureOption: 'x64'
+                      jdkSourceOption: 'PreInstalled'
+                  
+                  # =============================================
+                  # STEP 4: Install Maven 3.9.10
+                  # =============================================
+                  - script: |
+                      set -e
+                      echo "🔧 Installing Maven $(MAVEN_VERSION)..."
+                      MAVEN_ARCHIVE="maven.tar.gz"
+                      wget --progress=dot:giga -O "$MAVEN_ARCHIVE" "https://repo.maven.apache.org/maven2/org/apache/maven/apache-maven/$(MAVEN_VERSION)/apache-maven-$(MAVEN_VERSION)-bin.tar.gz"
+                      tar -xzf "$MAVEN_ARCHIVE"
+                      sudo rm -rf $(MAVEN_HOME) 2>/dev/null || true
+                      sudo mv apache-maven-$(MAVEN_VERSION) $(MAVEN_HOME)
+                      sudo chmod -R 755 $(MAVEN_HOME)
+                      rm -f "$MAVEN_ARCHIVE"
+                    displayName: 'Install Maven 3.9.10'
+                  
+                  # =============================================
+                  # STEP 5: Cache Maven Dependencies
+                  # =============================================
+                  - task: Cache@2
+                    displayName: 'Cache Maven Dependencies'
+                    inputs:
+                      key: 'maven | "$(Agent.OS)" | **/pom.xml'
+                      restoreKeys: |
+                        maven | "$(Agent.OS)"
+                        maven
+                      path: $(MAVEN_CACHE_FOLDER)
+                  
+                  # =============================================
+                  # STEP 6: Deploy to CloudHub 2.0 (Maven)
+                  # =============================================
+                  - script: |
+                      export M2_HOME=$(MAVEN_HOME)
+                      export PATH=$(MAVEN_HOME)/bin:$PATH
+                      
+                      echo "=================================================="
+                      echo " CloudHub 2.0 Deployment"
+                      echo "=================================================="
+                      echo "Application: $(APP_NAME)"
+                      echo "Target: $(CLOUDHUB_TARGET)"
+                      
+                      # Verify POM
+                      if [ ! -f pom.xml ]; then
+                        echo "❌ ERROR: pom.xml not found"
+                        exit 1
+                      fi
+        
+                      # ✅ Deploy using Maven
+                      # This uses the <profile id="cloudhub2"> from your pom.xml
+                      mvn clean deploy \
+                        -Pcloudhub2 \
+                        -Dmule.version=$(RUNTIME_VERSION) \
+                        -DanypointClientId=$(anypointClientId) \
+                        -DanypointClientSecret=$(anypointClientSecret) \
+                        -Dmule.env=dev \
+                        -Dsecure.key=mule \
+                        -DskipTests \
+                        -Dmaven.repo.local=$(MAVEN_CACHE_FOLDER) \
+                        -s ~/.m2/settings.xml \
+                        -e
+                      
+                      if [ $? -eq 0 ]; then
+                        echo "✅ DEPLOYMENT SUCCESSFUL"
+                      else
+                        echo "❌ DEPLOYMENT FAILED"
+                        exit 1
+                      fi
+                      
+                    displayName: 'Deploy to CloudHub 2.0'
+                    env:
+                      M2_HOME: $(MAVEN_HOME)
+                      anypointClientId: $(anypointClientId)
+                      anypointClientSecret: $(anypointClientSecret)
