@@ -86,51 +86,51 @@ stages:
   displayName: 'Deploy to CloudHub 2.0'
   dependsOn: Build
   condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
-
   jobs:
-  - job: DeployJob
-    displayName: 'CloudHub 2.0 Deploy'
-    steps:
+    - job: DeployJob
+      displayName: 'CloudHub 2.0 Deployment'
+      steps:
 
-    - task: DownloadPipelineArtifact@2
-      displayName: 'Download Artifacts'
-      inputs:
-        artifactName: mule-app
-        targetPath: $(System.DefaultWorkingDirectory)/artifacts
+        - task: DownloadPipelineArtifact@2
+          inputs:
+            artifactName: 'mule-app'
+            targetPath: $(System.DefaultWorkingDirectory)/artifacts
 
-    - task: NodeTool@0
-      displayName: 'Install Node.js'
-      inputs:
-        versionSpec: '18.x'
+        - task: NodeTool@0
+          inputs:
+            versionSpec: '18.x'
 
-    - script: |
-        npm install -g anypoint-cli@latest
-        anypoint-cli --version
-      displayName: 'Install Anypoint CLI'
+        - script: |
+            npm install -g anypoint-cli@3
+            anypoint-cli --version
+          displayName: 'Install Anypoint CLI'
 
-    - script: |
-        echo "🚀 CloudHub 2.0 Deployment"
+        - script: |
+            set -e
 
-        JAR_FILE=$(find $(System.DefaultWorkingDirectory)/artifacts -name "*.jar" | head -1)
-        if [ -z "$JAR_FILE" ]; then
-          echo "JAR not found"
-          exit 1
-        fi
+            JAR_FILE=$(find $(System.DefaultWorkingDirectory)/artifacts -name "*.jar" | head -1)
 
-        export ANYPOINT_CLIENT_ID="$(anypointClientId)"
-        export ANYPOINT_CLIENT_SECRET="$(anypointClientSecret)"
+            echo "Deploying $JAR_FILE"
 
-        anypoint-cli runtime-mgr cloudhub2-application deploy \
-          "$(APP_NAME)" \
-          "$JAR_FILE" \
-          --target "$(CLOUDHUB_TARGET)" \
-          --runtime-version "$(RUNTIME_VERSION)" \
-          --replicas "$(REPLICAS)" \
-          --replicaSize "$(REPLICA_SIZE)" \
-          --property mule.env=dev \
-          --property secure.key=mule \
-          --output json
-      displayName: 'Deploy to CloudHub 2.0'
-      env:
-        anypointClientId: $(anypointClientId)
-        anypointClientSecret: $(anypointClientSecret)
+            export ANYPOINT_CLIENT_ID="$(anypointClientId)"
+            export ANYPOINT_CLIENT_SECRET="$(anypointClientSecret)"
+
+            anypoint-cli runtime-mgr application deploy \
+              "$(APP_NAME)" \
+              "$(CLOUDHUB_TARGET)" \
+              "$(RUNTIME_VERSION)" \
+              "$JAR_FILE" \
+              --client_id "$ANYPOINT_CLIENT_ID" \
+              --client_secret "$ANYPOINT_CLIENT_SECRET" \
+              --organization "$(muleOrgId)" \
+              --environment "Sandbox" \
+              --replicas $(REPLICAS) \
+              --replicaSize $(VCORES) \
+              --property mule.env=dev \
+              --property secure.key=mule \
+              --output json
+          displayName: 'Deploy to CloudHub 2.0'
+          env:
+            anypointClientId: $(anypointClientId)
+            anypointClientSecret: $(anypointClientSecret)
+            muleOrgId: $(muleOrgId)
