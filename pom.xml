@@ -4,8 +4,8 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
   
-  <!-- ✅ Keep org UUID as groupId for CloudHub 2.0 -->
-  <groupId>733454d8-fc11-49e1-bd8d-3ec9a12baa26</groupId>
+  <!-- Simple groupId for CloudHub 1.0 -->
+  <groupId>com.mycompany</groupId>
   <artifactId>azure-project-v53</artifactId>
   <version>1.0.0-SNAPSHOT</version>
   <packaging>mule-application</packaging>
@@ -16,13 +16,6 @@
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     <app.runtime>4.9.0</app.runtime>
     <mule.maven.plugin.version>4.6.0</mule.maven.plugin.version>
-    
-    <!-- CloudHub 2.0 Deployment Properties -->
-    <cloudhub2.target>Cloudhub-US-East-2</cloudhub2.target>
-    <cloudhub2.environment>Sandbox</cloudhub2.environment>
-    <cloudhub2.replicas>1</cloudhub2.replicas>
-    <cloudhub2.vcores>0.1</cloudhub2.vcores>
-    <cloudhub2.applicationName>${project.artifactId}</cloudhub2.applicationName>
   </properties>
   
   <build>
@@ -34,62 +27,7 @@
         <extensions>true</extensions>
         <configuration>
           <classifier>mule-application</classifier>
-          
-          <!-- CloudHub 2.0 Deployment Configuration -->
-          <cloudhub2Deployment>
-            <uri>https://anypoint.mulesoft.com</uri>
-                  <provider>MC</provider> 
-            <connectedAppClientId>${connectedapp.clientid}</connectedAppClientId>
-            <connectedAppClientSecret>${connectedapp.clientsecret}</connectedAppClientSecret>
-            <connectedAppGrantType>client_credentials</connectedAppGrantType>
-            <businessGroup>${anypoint.orgid}</businessGroup>
-            <environment>${cloudhub2.environment}</environment>
-            <target>${cloudhub2.target}</target>
-            <applicationName>${cloudhub2.applicationName}</applicationName>
-            <muleVersion>${app.runtime}</muleVersion>
-            <replicas>${cloudhub2.replicas}</replicas>
-            <vCores>${cloudhub2.vcores}</vCores>
-            <deploymentTimeout>600000</deploymentTimeout>
-            <properties>
-              <mule.env>dev</mule.env>
-              <secure.key>mule</secure.key>
-            </properties>
-            <integrations>
-              <services>
-                <objectStoreV2>
-                  <enabled>true</enabled>
-                </objectStoreV2>
-              </services>
-            </integrations>
-          </cloudhub2Deployment>
         </configuration>
-      </plugin>
-      
-      <!-- ✅ CRITICAL: Disable default Maven deploy plugin -->
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-deploy-plugin</artifactId>
-        <version>3.1.1</version>
-        <configuration>
-          <skip>true</skip>
-        </configuration>
-      </plugin>
-      
-      <!-- ✅ Disable Exchange plugin -->
-      <plugin>
-        <groupId>org.mule.tools.maven</groupId>
-        <artifactId>exchange-mule-maven-plugin</artifactId>
-        <version>0.1.4</version>
-        <executions>
-          <execution>
-            <id>default-exchange-pre-deploy</id>
-            <phase>none</phase>
-          </execution>
-          <execution>
-            <id>default-exchange-deploy</id>
-            <phase>none</phase>
-          </execution>
-        </executions>
       </plugin>
     </plugins>
   </build>
@@ -141,6 +79,4 @@
       <url>https://repository.mulesoft.org/releases/</url>
     </pluginRepository>
   </pluginRepositories>
-  
-  <!-- ✅ REMOVED: distributionManagement section - not needed for CloudHub 2.0 -->
 </project>
