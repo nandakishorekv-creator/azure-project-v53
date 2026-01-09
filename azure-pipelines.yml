@@ -8,8 +8,6 @@ pool:
 
 variables:
   - group: build.variables
-  - name: MAVEN_CACHE_FOLDER
-    value: $(Pipeline.Workspace)/.m2/repository
   - name: APP_NAME
     value: $(projectName)
   - name: RUNTIME_VERSION
@@ -40,10 +38,8 @@ stages:
               secureFile: 'settings.xml'
           
           - script: |
-              echo "📦 Installing Maven settings..."
               mkdir -p ~/.m2
               cp $(mavenSettings.secureFilePath) ~/.m2/settings.xml
-              echo "✅ Maven settings installed"
             displayName: 'Install Maven Settings'
           
           - task: JavaToolInstaller@0
@@ -53,33 +49,12 @@ stages:
               jdkArchitectureOption: 'x64'
               jdkSourceOption: 'PreInstalled'
           
-          # # - task: Cache@2
-          # #   displayName: 'Cache Maven Dependencies'
-          # #   inputs:
-          # #     key: 'maven | "$(Agent.OS)" | **/pom.xml'
-          # #     restoreKeys: |
-          # #       maven | "$(Agent.OS)"
-          #       maven
-          #     path: $(MAVEN_CACHE_FOLDER)
-          
           - script: |
-              echo "=========================================="
-              echo " Building Mule Application"
-              echo "=========================================="
-              echo "Project: $(APP_NAME)"
-              echo "Runtime: $(RUNTIME_VERSION)"
-              echo ""
-              
-              mvn clean package \
-                -DskipTests \
-                -Dsecure.key=mule \
-                -Dmule.env=dev \
-                -s ~/.m2/settings.xml
+              echo "Building: $(APP_NAME)"
+              mvn clean package -DskipTests -s ~/.m2/settings.xml
               
               if [ $? -eq 0 ]; then
-                echo ""
                 echo "✅ BUILD SUCCESSFUL"
-                echo ""
                 ls -lh target/*.jar
               else
                 echo "❌ BUILD FAILED"
@@ -87,26 +62,18 @@ stages:
               fi
             displayName: 'Maven Package'
           
-          - task: CopyFiles@2
-            displayName: 'Copy Build Artifacts'
-            inputs:
-              Contents: '**/target/*.jar'
-              TargetFolder: $(Build.ArtifactStagingDirectory)
-              CleanTargetFolder: true
-              flattenFolders: true
-          
           - task: PublishPipelineArtifact@1
             displayName: 'Publish Build Artifacts'
             inputs:
-              targetPath: $(Build.ArtifactStagingDirectory)
+              targetPath: target
               artifact: 'mule-app'
               publishLocation: 'pipeline'
 
   #####################################################
-  # DEPLOY STAGE - CloudHub 2.0
+  # DEPLOY STAGE WITH FULL DEBUG
   #####################################################
   - stage: Deploy
-    displayName: 'Deploy to CloudHub 2.0'
+    displayName: 'Deploy to CloudHub 2.0 (Debug Mode)'
     dependsOn: Build
     condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
     jobs:
@@ -115,7 +82,6 @@ stages:
         steps:
           - task: DownloadSecureFile@1
             name: mavenSettings
-            displayName: 'Download Maven Settings'
             inputs:
               secureFile: 'settings.xml'
           
@@ -137,40 +103,87 @@ stages:
               artifactName: 'mule-app'
               targetPath: $(System.DefaultWorkingDirectory)/target
           
-          # ✅ FIXED: Use mule-maven-plugin:deploy directly instead of mvn deploy
+          # Pre-deployment diagnostics
           - script: |
               echo "=========================================="
-              echo " CloudHub 2.0 Deployment"
+              echo " PRE-DEPLOYMENT DIAGNOSTICS"
               echo "=========================================="
-              echo "Application: $(APP_NAME)"
-              echo "Environment: $(CH2_ENVIRONMENT)"
-              echo "Target: $(CH2_TARGET)"
-              echo "Runtime: $(RUNTIME_VERSION)"
-              echo "Replicas: $(CH2_REPLICAS)"
-              echo "vCores: $(CH2_VCORES)"
-              echo "Organization: $(muleOrg)"
+              echo ""
+              echo "📋 Configuration:"
+              echo "   App Name: $(APP_NAME)"
+              echo "   Environment: $(CH2_ENVIRONMENT)"
+              echo "   Target: $(CH2_TARGET)"
+              echo "   Runtime: $(RUNTIME_VERSION)"
+              echo "   Org ID: $(muleOrgId)"
               echo ""
               
-              # Verify JAR exists
+              echo "📦 JAR File Check:"
               JAR_FILE=$(find target -name "*.jar" -type f | head -1)
-              
               if [ -z "$JAR_FILE" ]; then
-                echo "❌ ERROR: JAR file not found in target directory!"
+                echo "   ❌ JAR file not found!"
                 exit 1
+              else
+                echo "   ✅ Found: $JAR_FILE"
+                echo "   Size: $(du -h "$JAR_FILE" | cut -f1)"
+                echo "   MD5: $(md5sum "$JAR_FILE" | cut -d' ' -f1)"
+              fi
+              echo ""
+              
+              echo "🔐 Credentials Check:"
+              if [ -z "$(anypointClientId)" ]; then
+                echo "   ❌ Client ID is missing!"
+                exit 1
+              else
+                echo "   ✅ Client ID: $(anypointClientId)"
               fi
               
-              echo "📦 JAR File: $JAR_FILE"
-              echo "📦 File Size: $(du -h "$JAR_FILE" | cut -f1)"
-              echo ""
-              echo "🚀 Starting deployment to CloudHub 2.0..."
+              if [ -z "$(anypointClientSecret)" ]; then
+                echo "   ❌ Client Secret is missing!"
+                exit 1
+              else
+                echo "   ✅ Client Secret: [REDACTED] (length: ${#ANYPOINT_SECRET})"
+              fi
+              
+              if [ -z "$(muleOrgId)" ]; then
+                echo "   ❌ Org ID is missing!"
+                exit 1
+              else
+                echo "   ✅ Org ID: $(muleOrgId)"
+              fi
               echo ""
               
-              # ✅ CRITICAL FIX: Use mule-maven-plugin:deploy goal directly
-              # This skips the maven-deploy-plugin that tries to publish to Exchange
+              echo "📁 POM Configuration:"
+              if [ -f "pom.xml" ]; then
+                echo "   ✅ pom.xml exists"
+                echo "   GroupId: $(grep -m1 '<groupId>' pom.xml | sed 's/.*<groupId>\(.*\)<\/groupId>.*/\1/')"
+                echo "   ArtifactId: $(grep -m1 '<artifactId>' pom.xml | sed 's/.*<artifactId>\(.*\)<\/artifactId>.*/\1/')"
+                echo "   Version: $(grep -m1 '<version>' pom.xml | sed 's/.*<version>\(.*\)<\/version>.*/\1/')"
+              else
+                echo "   ❌ pom.xml not found!"
+              fi
+              echo ""
+              
+            displayName: 'Pre-Deployment Diagnostics'
+            env:
+              ANYPOINT_SECRET: $(anypointClientSecret)
+          
+          # Deploy with full debug logging
+          - script: |
+              echo "=========================================="
+              echo " CLOUDHUB 2.0 DEPLOYMENT (DEBUG MODE)"
+              echo "=========================================="
+              echo ""
+              echo "🚀 Starting deployment with full debug logging..."
+              echo "   (This will show detailed error information)"
+              echo ""
+              
+              # Deploy with -X (debug) and -e (error traces)
               mvn mule:deploy \
-                -Dmule.deployment.provider=MC \
+                -X \
+                -e \
                 -DskipTests \
                 -Dmaven.deploy.skip=true \
+                -Dmule.deployment.provider=MC \
                 -Dconnectedapp.clientid=$(anypointClientId) \
                 -Dconnectedapp.clientsecret=$(anypointClientSecret) \
                 -Danypoint.orgid=$(muleOrgId) \
@@ -183,38 +196,37 @@ stages:
                 -Dsecure.key=mule \
                 -s ~/.m2/settings.xml
               
-              DEPLOY_EXIT_CODE=$?
+              EXIT_CODE=$?
               
               echo ""
-              if [ $DEPLOY_EXIT_CODE -eq 0 ]; then
-                echo "=========================================="
+              echo "=========================================="
+              if [ $EXIT_CODE -eq 0 ]; then
                 echo " ✅ DEPLOYMENT SUCCESSFUL!"
                 echo "=========================================="
                 echo ""
-                echo "Application: $(APP_NAME)"
-                echo "Environment: $(CH2_ENVIRONMENT)"
-                echo "Target: $(CH2_TARGET)"
-                echo ""
-                echo "🌐 Check status in Runtime Manager:"
+                echo "🌐 Check Runtime Manager:"
                 echo "   https://anypoint.mulesoft.com/cloudhub"
-                echo ""
               else
-                echo "=========================================="
                 echo " ❌ DEPLOYMENT FAILED"
                 echo "=========================================="
                 echo ""
-                echo "Exit Code: $DEPLOY_EXIT_CODE"
+                echo "Exit Code: $EXIT_CODE"
                 echo ""
-                echo "💡 Troubleshooting:"
-                echo "1. Verify Connected App permissions"
-                echo "2. Check environment exists: $(CH2_ENVIRONMENT)"
-                echo "3. Verify target exists: $(CH2_TARGET)"
-                echo "4. Ensure org ID is correct: $(muleOrgId)"
+                echo "🔍 Check the logs above for detailed error information."
+                echo "   Look for lines starting with 'ERROR' or 'Caused by:'"
                 echo ""
-                exit 1
+                echo "Common Issues:"
+                echo "   1. Environment '$(CH2_ENVIRONMENT)' doesn't exist"
+                echo "   2. Target '$(CH2_TARGET)' not found"
+                echo "   3. Invalid Connected App permissions"
+                echo "   4. Application name already exists"
+                echo "   5. Insufficient vCore allocation"
+                echo ""
               fi
               
-            displayName: 'Deploy to CloudHub 2.0'
+              exit $EXIT_CODE
+              
+            displayName: 'Deploy to CloudHub 2.0 (Debug)'
             env:
               anypointClientId: $(anypointClientId)
               anypointClientSecret: $(anypointClientSecret)
