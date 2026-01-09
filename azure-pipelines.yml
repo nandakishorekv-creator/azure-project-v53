@@ -8,20 +8,22 @@ pool:
 
 variables:
   - group: build.variables
+  - name: MAVEN_CACHE_FOLDER
+    value: $(Pipeline.Workspace)/.m2/repository
   - name: APP_NAME
     value: $(projectName)
   - name: RUNTIME_VERSION
     value: '4.9.0'
-  # ⚠️ UPDATE THIS with your Private Space name from Runtime Manager
+  # CloudHub 2.0 Configuration
   - name: CH2_TARGET
-    value: 'azure-test'
+    value: 'azure-test'  # ⚠️ REPLACE with your Private Space name
   - name: CH2_ENVIRONMENT
     value: 'Sandbox'
   - name: CH2_REPLICAS
     value: '1'
   - name: CH2_VCORES
     value: '0.1'
-  # Exchange coordinates from your Exchange asset
+  # Exchange coordinates
   - name: EXCHANGE_GROUP_ID
     value: $(muleOrgId)
   - name: EXCHANGE_ARTIFACT_ID
@@ -30,21 +32,186 @@ variables:
     value: '1.0.0'
 
 stages:
+  #####################################################
+  # BUILD STAGE
+  #####################################################
+  - stage: Build
+    displayName: 'Build Mule Application'
+    jobs:
+      - job: BuildJob
+        displayName: 'Maven Build'
+        steps:
+          # Download Maven settings.xml
+          - task: DownloadSecureFile@1
+            name: mavenSettings
+            displayName: 'Download Maven Settings'
+            inputs:
+              secureFile: 'settings.xml'
+          
+          # Install Maven settings
+          - script: |
+              echo "📦 Installing Maven settings..."
+              mkdir -p ~/.m2
+              cp $(mavenSettings.secureFilePath) ~/.m2/settings.xml
+              echo "✅ Maven settings installed"
+            displayName: 'Install Maven Settings'
+          
+          # Setup Java 17
+          - task: JavaToolInstaller@0
+            displayName: 'Setup Java 17'
+            inputs:
+              versionSpec: '17'
+              jdkArchitectureOption: 'x64'
+              jdkSourceOption: 'PreInstalled'
+          
+          # Cache Maven dependencies
+          # - task: Cache@2
+          #   displayName: 'Cache Maven Dependencies'
+          #   inputs:
+          #     key: 'maven | "$(Agent.OS)" | **/pom.xml'
+          #     restoreKeys: |
+          #       maven | "$(Agent.OS)"
+          #       maven
+          #     path: $(MAVEN_CACHE_FOLDER)
+          
+          # Maven Build
+          - script: |
+              echo "=========================================="
+              echo " Building Mule Application"
+              echo "=========================================="
+              echo "Project: $(APP_NAME)"
+              echo "Runtime: $(RUNTIME_VERSION)"
+              echo ""
+              
+              mvn clean package \
+                -DskipTests \
+                -Dsecure.key=mule \
+                -Dmule.env=dev \
+                -s ~/.m2/settings.xml
+              
+              if [ $? -eq 0 ]; then
+                echo ""
+                echo "✅ BUILD SUCCESSFUL"
+                echo ""
+                ls -lh target/*.jar
+              else
+                echo "❌ BUILD FAILED"
+                exit 1
+              fi
+            displayName: 'Maven Package'
+          
+          # Copy artifacts to staging
+          - task: CopyFiles@2
+            displayName: 'Copy Build Artifacts'
+            inputs:
+              Contents: |
+                **/target/*.jar
+                **/pom.xml
+              TargetFolder: $(Build.ArtifactStagingDirectory)
+              CleanTargetFolder: true
+          
+          # Publish artifacts
+          - task: PublishPipelineArtifact@1
+            displayName: 'Publish Build Artifacts'
+            inputs:
+              targetPath: $(Build.ArtifactStagingDirectory)
+              artifact: 'mule-app'
+              publishLocation: 'pipeline'
+
+  #####################################################
+  # PUBLISH TO EXCHANGE STAGE
+  #####################################################
+  - stage: PublishExchange
+    displayName: 'Publish to Anypoint Exchange'
+    dependsOn: Build
+    condition: succeeded()
+    jobs:
+      - job: PublishJob
+        displayName: 'Exchange Publication'
+        steps:
+          # Download Maven settings.xml
+          - task: DownloadSecureFile@1
+            name: mavenSettings
+            displayName: 'Download Maven Settings'
+            inputs:
+              secureFile: 'settings.xml'
+          
+          # Install Maven settings
+          - script: |
+              mkdir -p ~/.m2
+              cp $(mavenSettings.secureFilePath) ~/.m2/settings.xml
+            displayName: 'Install Maven Settings'
+          
+          # Setup Java 17
+          - task: JavaToolInstaller@0
+            displayName: 'Setup Java 17'
+            inputs:
+              versionSpec: '17'
+              jdkArchitectureOption: 'x64'
+              jdkSourceOption: 'PreInstalled'
+          
+          # Download build artifacts
+          - task: DownloadPipelineArtifact@2
+            displayName: 'Download Build Artifacts'
+            inputs:
+              artifactName: 'mule-app'
+              targetPath: $(System.DefaultWorkingDirectory)
+          
+          # Publish to Exchange
+          - script: |
+              echo "=========================================="
+              echo " Publishing to Anypoint Exchange"
+              echo "=========================================="
+              echo "Asset: $(EXCHANGE_GROUP_ID):$(EXCHANGE_ARTIFACT_ID):$(EXCHANGE_VERSION)"
+              echo ""
+              
+              # Set Exchange credentials as environment variables
+              export ANYPOINT_CLIENT_ID="$(anypointClientId)"
+              export ANYPOINT_CLIENT_SECRET="$(anypointClientSecret)"
+              
+              mvn deploy \
+                -DskipTests \
+                -DskipMuleDeploy=true \
+                -s ~/.m2/settings.xml
+              
+              if [ $? -eq 0 ]; then
+                echo ""
+                echo "=========================================="
+                echo " ✅ PUBLISHED TO EXCHANGE"
+                echo "=========================================="
+                echo ""
+                echo "Asset: $(EXCHANGE_GROUP_ID):$(EXCHANGE_ARTIFACT_ID):$(EXCHANGE_VERSION)"
+                echo ""
+              else
+                echo ""
+                echo "❌ EXCHANGE PUBLISH FAILED"
+                exit 1
+              fi
+            displayName: 'Publish to Exchange'
+            env:
+              anypointClientId: $(anypointClientId)
+              anypointClientSecret: $(anypointClientSecret)
+
+  #####################################################
+  # DEPLOY TO CLOUDHUB 2.0 STAGE
+  #####################################################
   - stage: Deploy
     displayName: 'Deploy to CloudHub 2.0'
-    condition: eq(variables['Build.SourceBranch'], 'refs/heads/main')
+    dependsOn: PublishExchange
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
     jobs:
       - job: DeployJob
-        displayName: 'Deploy from Exchange'
+        displayName: 'CloudHub 2.0 Deployment'
         steps:
           - script: |
               echo "=========================================="
-              echo " CloudHub 2.0 Deployment from Exchange"
+              echo " CloudHub 2.0 Deployment"
               echo "=========================================="
               echo "Application: $(APP_NAME)"
-              echo "Exchange: $(EXCHANGE_GROUP_ID):$(EXCHANGE_ARTIFACT_ID):$(EXCHANGE_VERSION)"
+              echo "Exchange Asset: $(EXCHANGE_GROUP_ID):$(EXCHANGE_ARTIFACT_ID):$(EXCHANGE_VERSION)"
               echo "Environment: $(CH2_ENVIRONMENT)"
               echo "Target: $(CH2_TARGET)"
+              echo "Runtime: $(RUNTIME_VERSION)"
               echo ""
               
               # Get access token
@@ -56,91 +223,34 @@ stages:
               ACCESS_TOKEN=$(echo $TOKEN_RESPONSE | grep -o '"access_token":"[^"]*"' | cut -d'"' -f4)
               
               if [ -z "$ACCESS_TOKEN" ]; then
-                echo "❌ Failed to authenticate"
+                echo "❌ Failed to get access token"
+                echo "Response: $TOKEN_RESPONSE"
                 exit 1
               fi
-              echo "✅ Authenticated"
+              
+              echo "✅ Token obtained"
               echo ""
               
               # Get environment ID
               echo "🔍 Getting environment ID for '$(CH2_ENVIRONMENT)'..."
-              ENV_RESPONSE=$(curl -s "https://anypoint.mulesoft.com/accounts/api/organizations/$(muleOrgId)/environments" \
+              ENV_RESPONSE=$(curl -s -X GET \
+                "https://anypoint.mulesoft.com/accounts/api/organizations/$(muleOrgId)/environments" \
                 -H "Authorization: Bearer $ACCESS_TOKEN")
               
               ENV_ID=$(echo $ENV_RESPONSE | grep -o "\"name\":\"$(CH2_ENVIRONMENT)\"[^}]*\"id\":\"[^\"]*\"" | grep -o "\"id\":\"[^\"]*\"" | cut -d'"' -f4)
               
               if [ -z "$ENV_ID" ]; then
                 echo "❌ Environment '$(CH2_ENVIRONMENT)' not found"
+                echo "Available environments:"
+                echo $ENV_RESPONSE | grep -o '"name":"[^"]*"' | cut -d'"' -f4
                 exit 1
               fi
+              
               echo "✅ Environment ID: $ENV_ID"
               echo ""
               
-              # Deploy
-              echo "🚀 Deploying to CloudHub 2.0..."
-              
-              DEPLOY_RESPONSE=$(curl -s -w "\nHTTP_CODE:%{http_code}" -X POST \
-                "https://anypoint.mulesoft.com/amc/application-manager/api/v2/organizations/$(muleOrgId)/environments/$ENV_ID/deployments" \
-                -H "Authorization: Bearer $ACCESS_TOKEN" \
-                -H "X-ANYPNT-ENV-ID: $ENV_ID" \
-                -H "X-ANYPNT-ORG-ID: $(muleOrgId)" \
-                -H "Content-Type: application/json" \
-                -d "{
-                  \"name\": \"$(APP_NAME)\",
-                  \"application\": {
-                    \"ref\": {
-                      \"groupId\": \"$(EXCHANGE_GROUP_ID)\",
-                      \"artifactId\": \"$(EXCHANGE_ARTIFACT_ID)\",
-                      \"version\": \"$(EXCHANGE_VERSION)\",
-                      \"packaging\": \"jar\"
-                    },
-                    \"desiredState\": \"STARTED\",
-                    \"configuration\": {
-                      \"mule.agent.application.properties.service\": {
-                        \"properties\": {
-                          \"mule.env\": \"dev\",
-                          \"secure.key\": \"mule\"
-                        }
-                      }
-                    },
-                    \"vCores\": \"$(CH2_VCORES)\",
-                    \"integrations\": {
-                      \"services\": {
-                        \"objectStoreV2\": {
-                          \"enabled\": true
-                        }
-                      }
-                    }
-                  },
-                  \"target\": {
-                    \"targetId\": \"$(CH2_TARGET)\",
-                    \"provider\": \"MC\",
-                    \"deploymentSettings\": {
-                      \"runtimeVersion\": \"$(RUNTIME_VERSION)\"
-                    },
-                    \"replicas\": \"$(CH2_REPLICAS)\"
-                  }
-                }")
-              
-              HTTP_CODE=$(echo "$DEPLOY_RESPONSE" | grep "HTTP_CODE:" | cut -d':' -f2)
-              
-              if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "201" ] || [ "$HTTP_CODE" = "202" ]; then
-                echo ""
-                echo "=========================================="
-                echo " ✅ DEPLOYMENT SUCCESSFUL!"
-                echo "=========================================="
-                echo ""
-                echo "🌐 Check Runtime Manager:"
-                echo "   https://anypoint.mulesoft.com/cloudhub"
-              else
-                echo ""
-                echo "❌ DEPLOYMENT FAILED - HTTP $HTTP_CODE"
-                echo "Response: $(echo "$DEPLOY_RESPONSE" | sed 's/HTTP_CODE:.*//')"
-                exit 1
-              fi
-              
-            displayName: 'Deploy to CloudHub 2.0'
-            env:
-              anypointClientId: $(anypointClientId)
-              anypointClientSecret: $(anypointClientSecret)
-              muleOrgId: $(muleOrgId)
+              # Verify Exchange asset exists
+              echo "🔍 Verifying Exchange asset..."
+              ASSET_CHECK=$(curl -s -w "\nHTTP_CODE:%{http_code}" -X GET \
+                "https://anypoint.mulesoft.com/exchange/api/v2/assets/$(EXCHANGE_GROUP_ID)/$(EXCHANGE_ARTIFACT_ID)/$(EXCHANGE_VERSION)" \
+                -H "Authorization: Bearer $ACCESS_TOKEN
