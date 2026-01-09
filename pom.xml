@@ -38,6 +38,7 @@
           <!-- CloudHub 2.0 Deployment Configuration -->
           <cloudhub2Deployment>
             <uri>https://anypoint.mulesoft.com</uri>
+                  <provider>MC</provider> 
             <connectedAppClientId>${connectedapp.clientid}</connectedAppClientId>
             <connectedAppClientSecret>${connectedapp.clientsecret}</connectedAppClientSecret>
             <connectedAppGrantType>client_credentials</connectedAppGrantType>
