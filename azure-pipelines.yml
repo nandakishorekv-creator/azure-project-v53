@@ -8,18 +8,18 @@ pool:
 
 variables:
   - group: build.variables
-  - name: MAVEN_CACHE_FOLDER
-    value: $(Pipeline.Workspace)/.m2/repository
   - name: APP_NAME
     value: $(projectName)
   - name: RUNTIME_VERSION
     value: '4.9.0'
   - name: CLOUDHUB_REGION
-    value: 'us-east-2'
-  - name: REPLICAS
-    value: '1'
-  - name: VCORES
+    value: 'us-east-1'
+  - name: WORKER_SIZE
+    value: 'MICRO'
+  - name: WORKER_VCORES
     value: '0.1'
+  - name: WORKERS
+    value: '1'
 
 stages:
   #####################################################
@@ -38,10 +38,8 @@ stages:
               secureFile: 'settings.xml'
           
           - script: |
-              echo "📦 Installing Maven settings..."
               mkdir -p ~/.m2
               cp $(mavenSettings.secureFilePath) ~/.m2/settings.xml
-              echo "✅ Settings installed"
             displayName: 'Install Maven Settings'
           
           - task: JavaToolInstaller@0
@@ -51,35 +49,10 @@ stages:
               jdkArchitectureOption: 'x64'
               jdkSourceOption: 'PreInstalled'
           
-          # - task: Cache@2
-          #   displayName: 'Cache Maven Dependencies'
-          #   inputs:
-          #     key: 'maven | "$(Agent.OS)" | **/pom.xml'
-          #     restoreKeys: |
-          #       maven | "$(Agent.OS)"
-          #       maven
-          #     path: $(MAVEN_CACHE_FOLDER)
-          
           - script: |
-              echo "=========================================="
-              echo " Building Mule Application"
-              echo "=========================================="
-              mvn clean package \
-                -DskipTests \
-                -Dsecure.key=mule \
-                -Dmule.env=dev \
-                -s ~/.m2/settings.xml
-              
-              if [ $? -eq 0 ]; then
-                echo ""
-                echo "✅ BUILD SUCCESSFUL"
-                echo ""
-                echo "Artifact Details:"
-                ls -lh target/*.jar
-              else
-                echo "❌ BUILD FAILED"
-                exit 1
-              fi
+              echo "Building Mule Application..."
+              mvn clean package -DskipTests -s ~/.m2/settings.xml
+              ls -lh target/*.jar
             displayName: 'Maven Package'
           
           - task: CopyFiles@2
@@ -95,18 +68,17 @@ stages:
             inputs:
               targetPath: $(Build.ArtifactStagingDirectory)
               artifact: 'mule-app'
-              publishLocation: 'pipeline'
 
   #####################################################
-  # DEPLOY STAGE - CloudHub 1.0
+  # DEPLOY STAGE - Direct CloudHub REST API
   #####################################################
   - stage: Deploy
-    displayName: 'Deploy to CloudHub 1.0'
+    displayName: 'Deploy to CloudHub'
     dependsOn: Build
     condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
     jobs:
       - job: DeployJob
-        displayName: 'CloudHub 1.0 Deployment'
+        displayName: 'CloudHub REST API Deployment'
         steps:
           - task: DownloadPipelineArtifact@2
             displayName: 'Download Build Artifacts'
@@ -114,58 +86,128 @@ stages:
               artifactName: 'mule-app'
               targetPath: $(System.DefaultWorkingDirectory)/artifacts
           
-          - task: NodeTool@0
-            displayName: 'Install Node.js'
-            inputs:
-              versionSpec: '18.x'
-          
-          - script: |
-              echo "Installing Anypoint CLI..."
-              npm install -g anypoint-cli@latest
-             
-            displayName: 'Install Anypoint CLI'
-          
           - script: |
               echo "=========================================="
-              echo " CloudHub 1.0 Deployment"
+              echo " CloudHub Deployment via REST API"
               echo "=========================================="
               echo "Application: $(APP_NAME)"
               echo "Runtime: $(RUNTIME_VERSION)"
               echo "Region: $(CLOUDHUB_REGION)"
-              echo "Organization: $(muleOrg)"
-              echo "Workers: $(REPLICAS)"
-              echo "Worker Size: $(VCORES) vCores"
+              echo "Organization: $(muleOrgId)"
+              echo "Environment: $(environmentId)"
               echo ""
               
+              # Find JAR file
               JAR_FILE=$(find $(System.DefaultWorkingDirectory)/artifacts -name "*.jar" -type f | head -1)
               
               if [ -z "$JAR_FILE" ]; then
-                echo "❌ ERROR: JAR file not found!"
+                echo "❌ JAR file not found!"
                 exit 1
               fi
               
-              echo "📦 JAR File: $JAR_FILE"
-              echo "📦 File Size: $(du -h "$JAR_FILE" | cut -f1)"
-              echo ""
-              echo "🚀 Starting deployment..."
+              echo "📦 JAR: $(basename "$JAR_FILE")"
+              echo "📦 Size: $(du -h "$JAR_FILE" | cut -f1)"
               echo ""
               
-              anypoint-cli runtime-mgr cloudhub-application deploy \
-                $(APP_NAME) \
-                "$JAR_FILE" \
-                --region $(CLOUDHUB_REGION) \
-                --runtime $(RUNTIME_VERSION) \
-                --workers $(REPLICAS) \
-                --workerSize $(VCORES) \
-                --property "mule.env:dev" \
-                --property "secure.key:mule" \
-                --output json
+              # Step 1: Get Access Token
+              echo "🔐 Getting access token..."
+              TOKEN_RESPONSE=$(curl -s -X POST "https://anypoint.mulesoft.com/accounts/api/v2/oauth2/token" \
+                -H "Content-Type: application/json" \
+                -d "{
+                  \"grant_type\": \"client_credentials\",
+                  \"client_id\": \"$(anypointClientId)\",
+                  \"client_secret\": \"$(anypointClientSecret)\"
+                }")
               
-              if [ $? -eq 0 ]; then
+              ACCESS_TOKEN=$(echo "$TOKEN_RESPONSE" | grep -o '"access_token":"[^"]*"' | cut -d'"' -f4)
+              
+              if [ -z "$ACCESS_TOKEN" ]; then
+                echo "❌ Failed to get access token"
+                echo "$TOKEN_RESPONSE"
+                exit 1
+              fi
+              
+              echo "✅ Access token obtained"
+              echo ""
+              
+              # Step 2: Check if app exists
+              echo "🔍 Checking if application exists..."
+              APP_EXISTS=$(curl -s -X GET \
+                "https://anypoint.mulesoft.com/cloudhub/api/v2/applications/$(APP_NAME)" \
+                -H "Authorization: Bearer $ACCESS_TOKEN" \
+                -H "X-ANYPNT-ORG-ID: $(muleOrgId)" \
+                -H "X-ANYPNT-ENV-ID: $(environmentId)" \
+                -w "%{http_code}" -o /dev/null)
+              
+              if [ "$APP_EXISTS" = "200" ]; then
+                echo "⚠️  Application exists - will update"
+                DEPLOY_METHOD="PUT"
+                DEPLOY_ENDPOINT="https://anypoint.mulesoft.com/cloudhub/api/v2/applications/$(APP_NAME)"
+              else
+                echo "📝 New application - will create"
+                DEPLOY_METHOD="POST"
+                DEPLOY_ENDPOINT="https://anypoint.mulesoft.com/cloudhub/api/v2/applications"
+              fi
+              
+              echo ""
+              
+              # Step 3: Prepare application configuration JSON
+              cat > /tmp/appInfoJson.json <<APPJSON
+              {
+                "domain": "$(APP_NAME)",
+                "muleVersion": {"version": "$(RUNTIME_VERSION)"},
+                "region": "$(CLOUDHUB_REGION)",
+                "monitoringEnabled": true,
+                "monitoringAutoRestart": true,
+                "workers": {
+                  "amount": $(WORKERS),
+                  "type": {
+                    "name": "$(WORKER_SIZE)",
+                    "weight": "$(WORKER_VCORES)",
+                    "cpu": "$(WORKER_VCORES) vCores",
+                    "memory": "500 MB"
+                  }
+                },
+                "properties": {
+                  "mule.env": "dev",
+                  "secure.key": "mule"
+                },
+                "loggingNgEnabled": true,
+                "persistentQueues": false,
+                "objectStoreV2": true
+              }
+              APPJSON
+              
+              echo "📄 Application config:"
+              cat /tmp/appInfoJson.json
+              echo ""
+              
+              # Step 4: Deploy application
+              echo "🚀 Deploying to CloudHub..."
+              DEPLOY_RESPONSE=$(curl -s -w "\nHTTP_CODE:%{http_code}" -X $DEPLOY_METHOD \
+                "$DEPLOY_ENDPOINT" \
+                -H "Authorization: Bearer $ACCESS_TOKEN" \
+                -H "X-ANYPNT-ORG-ID: $(muleOrgId)" \
+                -H "X-ANYPNT-ENV-ID: $(environmentId)" \
+                -F "file=@$JAR_FILE" \
+                -F "autoStart=true" \
+                -F "appInfoJson=<>/tmp/appInfoJson.json;type=application/json")
+              
+              HTTP_CODE=$(echo "$DEPLOY_RESPONSE" | grep "HTTP_CODE:" | cut -d: -f2)
+              RESPONSE_BODY=$(echo "$DEPLOY_RESPONSE" | grep -v "HTTP_CODE:")
+              
+              echo ""
+              echo "Response Code: $HTTP_CODE"
+              
+              if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "201" ]; then
                 echo ""
                 echo "=========================================="
                 echo " ✅ DEPLOYMENT SUCCESSFUL!"
                 echo "=========================================="
+                echo ""
+                echo "Application: $(APP_NAME)"
+                echo "Region: $(CLOUDHUB_REGION)"
+                echo "Status: Deploying..."
                 echo ""
                 echo "🌐 Application URL:"
                 echo "   https://$(APP_NAME).$(CLOUDHUB_REGION).cloudhub.io"
@@ -173,14 +215,35 @@ stages:
                 echo "🌐 CloudHub Console:"
                 echo "   https://anypoint.mulesoft.com/cloudhub"
                 echo ""
+                
+                # Wait and check status
+                echo "⏳ Waiting for deployment to start..."
+                sleep 15
+                
+                STATUS_RESPONSE=$(curl -s -X GET \
+                  "https://anypoint.mulesoft.com/cloudhub/api/v2/applications/$(APP_NAME)" \
+                  -H "Authorization: Bearer $ACCESS_TOKEN" \
+                  -H "X-ANYPNT-ORG-ID: $(muleOrgId)" \
+                  -H "X-ANYPNT-ENV-ID: $(environmentId)")
+                
+                APP_STATUS=$(echo "$STATUS_RESPONSE" | grep -o '"status":"[^"]*"' | cut -d'"' -f4)
+                echo "Current Status: $APP_STATUS"
+                
               else
                 echo ""
-                echo "❌ DEPLOYMENT FAILED"
+                echo "=========================================="
+                echo " ❌ DEPLOYMENT FAILED"
+                echo "=========================================="
+                echo ""
+                echo "Response:"
+                echo "$RESPONSE_BODY"
+                echo ""
                 exit 1
               fi
               
-            displayName: 'Deploy to CloudHub'
+            displayName: 'Deploy via REST API'
             env:
-              ANYPOINT_CLIENT_ID: $(anypointClientId)
-              ANYPOINT_CLIENT_SECRET: $(anypointClientSecret)
-              ANYPOINT_ORG: $(muleOrgId)
+              anypointClientId: $(anypointClientId)
+              anypointClientSecret: $(anypointClientSecret)
+              muleOrgId: $(muleOrgId)
+              environmentId: $(environmentId)
