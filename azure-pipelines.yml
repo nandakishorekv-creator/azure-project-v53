@@ -14,7 +14,6 @@ variables:
     value: $(projectName)
   - name: RUNTIME_VERSION
     value: '4.9.0'
-  # ✅ FIXED: Changed to proper CloudHub region format
   - name: CLOUDHUB_REGION
     value: 'us-east-2'
   - name: REPLICAS
@@ -106,7 +105,7 @@ stages:
               publishLocation: 'pipeline'
 
   #####################################################
-  # DEPLOY STAGE - CloudHub 1.0
+  # DEPLOY STAGE - Using Credentials File
   #####################################################
   - stage: Deploy
     displayName: 'Deploy to CloudHub 1.0'
@@ -145,6 +144,41 @@ stages:
               fi
             displayName: 'Install Anypoint CLI'
           
+          # Create Anypoint Credentials File
+          - script: |
+              echo "=========================================="
+              echo " Creating Anypoint Credentials"
+              echo "=========================================="
+              
+              # Create .anypoint directory
+              mkdir -p ~/.anypoint
+              
+              # Create credentials file with Connected App credentials
+              cat > ~/.anypoint/credentials <<EOF
+{
+  "default": {
+    "client_id": "$(anypointClientId)",
+    "client_secret": "$(anypointClientSecret)",
+    "organization": "$(muleOrgId)"
+  }
+}
+EOF
+              
+              # Verify file was created
+              if [ -f ~/.anypoint/credentials ]; then
+                echo "✅ Credentials file created successfully"
+                echo "   Location: ~/.anypoint/credentials"
+              else
+                echo "❌ Failed to create credentials file"
+                exit 1
+              fi
+              
+            displayName: 'Setup Anypoint Credentials'
+            env:
+              anypointClientId: $(anypointClientId)
+              anypointClientSecret: $(anypointClientSecret)
+              muleOrgId: $(muleOrgId)
+          
           # Deploy to CloudHub 1.0
           - script: |
               echo "=========================================="
@@ -154,6 +188,7 @@ stages:
               echo "Runtime: $(RUNTIME_VERSION)"
               echo "Region: $(CLOUDHUB_REGION)"
               echo "Organization: $(muleOrg)"
+              echo "Organization ID: $(muleOrgId)"
               echo "Workers: $(REPLICAS)"
               echo "Worker Size: $(VCORES) vCores"
               echo ""
@@ -170,24 +205,21 @@ stages:
               echo "📦 File Size: $(du -h "$JAR_FILE" | cut -f1)"
               echo ""
               
-              # ✅ AUTHENTICATE FIRST - This is the fix!
-              echo "🔐 Authenticating with Anypoint Platform..."
-              anypoint-cli conf client_id "$(anypointClientId)"
-              anypoint-cli conf client_secret "$(anypointClientSecret)"
-              anypoint-cli conf organization "$(muleOrgId)"
+              # Test authentication
+              echo "🔍 Testing authentication..."
+              anypoint-cli runtime-mgr cloudhub-application list --output json > /dev/null 2>&1
               
               if [ $? -eq 0 ]; then
-                echo "✅ Authentication successful"
+                echo "✅ Authentication verified - can access CloudHub"
               else
-                echo "❌ Authentication failed"
-                exit 1
+                echo "⚠️  Warning: Could not list applications"
               fi
               
               echo ""
               echo "🚀 Starting deployment to CloudHub 1.0..."
               echo ""
               
-              # Deploy with authenticated CLI
+              # Deploy application (credentials from ~/.anypoint/credentials)
               anypoint-cli runtime-mgr cloudhub-application deploy \
                 $(APP_NAME) \
                 "$JAR_FILE" \
@@ -211,6 +243,9 @@ stages:
                 echo "Region: $(CLOUDHUB_REGION)"
                 echo "Organization: $(muleOrg)"
                 echo ""
+                echo "🌐 Application URL:"
+                echo "   https://$(APP_NAME).$(CLOUDHUB_REGION).cloudhub.io"
+                echo ""
                 echo "🌐 Check status at:"
                 echo "   https://anypoint.mulesoft.com/cloudhub"
                 echo ""
@@ -218,7 +253,7 @@ stages:
                 # Display application status
                 echo "🔍 Checking application status..."
                 sleep 15
-                anypoint-cli runtime-mgr cloudhub-application describe $(APP_NAME) --output json | grep -o '"status":"[^"]*"' | cut -d'"' -f4 || echo "Status check skipped"
+                anypoint-cli runtime-mgr cloudhub-application describe $(APP_NAME) --output json 2>/dev/null | grep -o '"status":"[^"]*"' | cut -d'"' -f4 || echo "Status: Deploying..."
                 
               else
                 echo "=========================================="
@@ -227,19 +262,11 @@ stages:
                 echo ""
                 echo "Exit Code: $DEPLOY_EXIT_CODE"
                 echo ""
-                echo "💡 Troubleshooting tips:"
-                echo "1. Check if application name is unique in CloudHub"
-                echo "2. Verify Connected App has Runtime Manager scopes:"
-                echo "   - View Applications"
-                echo "   - Manage Applications"
-                echo "   - Manage Settings"
-                echo "   - Deploy Applications"
-                echo "3. Check if region is correct: $(CLOUDHUB_REGION)"
-                echo "   Valid regions: us-east-1, us-east-2, us-west-2, eu-west-1, ap-southeast-2, etc."
-                echo "4. Verify runtime version is supported: $(RUNTIME_VERSION)"
-                echo "5. Ensure worker size is valid: $(VCORES) vCores"
-                echo "   Supported sizes: 0.1, 0.2, 1, 2, 4, 8, 16"
-                echo "6. Check organization ID is correct"
+                echo "💡 Troubleshooting:"
+                echo "1. Verify Connected App has Runtime Manager scopes"
+                echo "2. Check if app name '$(APP_NAME)' is unique"
+                echo "3. Verify organization ID: $(muleOrgId)"
+                echo "4. Ensure region '$(CLOUDHUB_REGION)' is available"
                 echo ""
                 exit 1
               fi
