@@ -14,8 +14,9 @@ variables:
     value: $(projectName)
   - name: RUNTIME_VERSION
     value: '4.9.0'
-  - name: CLOUDHUB_TARGET
-    value: 'CloudHub-US-East-2'
+  # ✅ FIXED: Changed to proper CloudHub region format
+  - name: CLOUDHUB_REGION
+    value: 'us-east-2'
   - name: REPLICAS
     value: '1'
   - name: VCORES
@@ -54,7 +55,7 @@ stages:
               jdkArchitectureOption: 'x64'
               jdkSourceOption: 'PreInstalled'
           
-          # # Cache Maven dependencies
+          # Cache Maven dependencies
           # - task: Cache@2
           #   displayName: 'Cache Maven Dependencies'
           #   inputs:
@@ -150,7 +151,7 @@ stages:
               echo "=========================================="
               echo "Application: $(APP_NAME)"
               echo "Runtime: $(RUNTIME_VERSION)"
-              echo "Target: $(CLOUDHUB_TARGET)"
+              echo "Region: $(CLOUDHUB_REGION)"
               echo "Organization: $(muleOrg)"
               echo "Workers: $(REPLICAS)"
               echo "Worker Size: $(VCORES) vCores"
@@ -176,11 +177,11 @@ stages:
               echo "🚀 Starting deployment to CloudHub 1.0..."
               echo ""
               
-              # CloudHub 1.0 deployment command
+              # ✅ FIXED: Changed --target to --region with proper region format
               anypoint-cli runtime-mgr cloudhub-application deploy \
                 $(APP_NAME) \
                 "$JAR_FILE" \
-                --target $(CLOUDHUB_TARGET) \
+                --region $(CLOUDHUB_REGION) \
                 --runtime $(RUNTIME_VERSION) \
                 --workers $(REPLICAS) \
                 --workerSize $(VCORES) \
@@ -197,7 +198,7 @@ stages:
                 echo "=========================================="
                 echo ""
                 echo "Application: $(APP_NAME)"
-                echo "Target: $(CLOUDHUB_TARGET)"
+                echo "Region: $(CLOUDHUB_REGION)"
                 echo "Organization: $(muleOrg)"
                 echo ""
                 echo "🌐 Check status at:"
@@ -206,8 +207,8 @@ stages:
                 
                 # Display application status
                 echo "🔍 Checking application status..."
-                sleep 10
-                anypoint-cli runtime-mgr cloudhub-application describe $(APP_NAME) --output json | jq -r '.status' || echo "Status check skipped (jq not available)"
+                sleep 15
+                anypoint-cli runtime-mgr cloudhub-application describe $(APP_NAME) --output json | grep -o '"status":"[^"]*"' | cut -d'"' -f4 || echo "Status check skipped"
                 
               else
                 echo "=========================================="
@@ -217,16 +218,18 @@ stages:
                 echo "Exit Code: $DEPLOY_EXIT_CODE"
                 echo ""
                 echo "💡 Troubleshooting tips:"
-                echo "1. Check if application name is unique"
+                echo "1. Check if application name is unique in CloudHub"
                 echo "2. Verify Connected App has Runtime Manager scopes:"
                 echo "   - View Applications"
                 echo "   - Manage Applications"
                 echo "   - Manage Settings"
-                echo "3. Check if target is correct: $(CLOUDHUB_TARGET)"
-                echo "   Valid targets: CloudHub-US-East-1, CloudHub-US-East-2, CloudHub-US-West-1, etc."
+                echo "   - Deploy Applications"
+                echo "3. Check if region is correct: $(CLOUDHUB_REGION)"
+                echo "   Valid regions: us-east-1, us-east-2, us-west-2, eu-west-1, ap-southeast-2, etc."
                 echo "4. Verify runtime version is supported: $(RUNTIME_VERSION)"
                 echo "5. Ensure worker size is valid: $(VCORES) vCores"
                 echo "   Supported sizes: 0.1, 0.2, 1, 2, 4, 8, 16"
+                echo "6. Check organization ID is correct"
                 echo ""
                 exit 1
               fi
