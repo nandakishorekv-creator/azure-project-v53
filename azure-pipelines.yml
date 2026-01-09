@@ -51,14 +51,14 @@ stages:
               jdkArchitectureOption: 'x64'
               jdkSourceOption: 'PreInstalled'
           
-          - task: Cache@2
-            displayName: 'Cache Maven Dependencies'
-            inputs:
-              key: 'maven | "$(Agent.OS)" | **/pom.xml'
-              restoreKeys: |
-                maven | "$(Agent.OS)"
-                maven
-              path: $(MAVEN_CACHE_FOLDER)
+          # - task: Cache@2
+          #   displayName: 'Cache Maven Dependencies'
+          #   inputs:
+          #     key: 'maven | "$(Agent.OS)" | **/pom.xml'
+          #     restoreKeys: |
+          #       maven | "$(Agent.OS)"
+          #       maven
+          #     path: $(MAVEN_CACHE_FOLDER)
           
           - script: |
               echo "=========================================="
@@ -122,7 +122,7 @@ stages:
           - script: |
               echo "Installing Anypoint CLI..."
               npm install -g anypoint-cli@latest
-              anypoint-cli --version
+             
             displayName: 'Install Anypoint CLI'
           
           - script: |
