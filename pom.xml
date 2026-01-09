@@ -6,8 +6,8 @@
   
   <!-- Use your Organization ID as groupId for Exchange -->
   <groupId>733454d8-fc11-49e1-bd8d-3ec9a12baa26</groupId>
-  <artifactId>azure-project-v53</artifactId>
-  <version>1.0.1</version>
+  <artifactId>azure-project-v53-jar</artifactId>
+  <version>1.0.0</version>
   <packaging>mule-application</packaging>
   
   <!-- ✅ REQUIRED: Exchange Metadata (fixes 412 error) -->
@@ -21,7 +21,7 @@
     <mule.maven.plugin.version>4.6.0</mule.maven.plugin.version>
     
     <!-- ✅ REQUIRED: Exchange asset type -->
-    
+     <type>app</type> 
     
     <!-- CloudHub 2.0 Deployment Properties -->
     <cloudhub2.target>njcAssetPvtSpace</cloudhub2.target>
