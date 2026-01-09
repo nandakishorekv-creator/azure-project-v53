@@ -103,7 +103,7 @@ stages:
           
           - script: |
               npm install -g anypoint-cli@latest
-              anypoint-cli --version
+              
             displayName: 'Install Anypoint CLI'
           
           - script: |
