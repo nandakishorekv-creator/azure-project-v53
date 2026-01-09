@@ -33,24 +33,19 @@ stages:
       - job: BuildJob
         displayName: 'Maven Build'
         steps:
-          # Download Maven settings.xml
           - task: DownloadSecureFile@1
             name: mavenSettings
             displayName: 'Download Maven Settings'
             inputs:
               secureFile: 'settings.xml'
           
-          # Install Maven settings
           - script: |
-              echo "=========================================="
-              echo " Installing Maven Settings"
-              echo "=========================================="
+              echo "📦 Installing Maven settings..."
               mkdir -p ~/.m2
               cp $(mavenSettings.secureFilePath) ~/.m2/settings.xml
               echo "✅ Maven settings installed"
             displayName: 'Install Maven Settings'
           
-          # Setup Java 17
           - task: JavaToolInstaller@0
             displayName: 'Setup Java 17'
             inputs:
@@ -58,17 +53,15 @@ stages:
               jdkArchitectureOption: 'x64'
               jdkSourceOption: 'PreInstalled'
           
-          # Cache Maven dependencies
-          - task: Cache@2
-            displayName: 'Cache Maven Dependencies'
-            inputs:
-              key: 'maven | "$(Agent.OS)" | **/pom.xml'
-              restoreKeys: |
-                maven | "$(Agent.OS)"
+          # - task: Cache@2
+          #   displayName: 'Cache Maven Dependencies'
+          #   inputs:
+          #     key: 'maven | "$(Agent.OS)" | **/pom.xml'
+          #     restoreKeys: |
+          #       maven | "$(Agent.OS)"
                 maven
               path: $(MAVEN_CACHE_FOLDER)
           
-          # Maven Build (package only)
           - script: |
               echo "=========================================="
               echo " Building Mule Application"
@@ -85,21 +78,15 @@ stages:
               
               if [ $? -eq 0 ]; then
                 echo ""
-                echo "=========================================="
-                echo " ✅ BUILD SUCCESSFUL"
-                echo "=========================================="
+                echo "✅ BUILD SUCCESSFUL"
                 echo ""
-                echo "Artifact Details:"
                 ls -lh target/*.jar
-                echo ""
               else
-                echo ""
                 echo "❌ BUILD FAILED"
                 exit 1
               fi
             displayName: 'Maven Package'
           
-          # Copy artifacts to staging
           - task: CopyFiles@2
             displayName: 'Copy Build Artifacts'
             inputs:
@@ -108,7 +95,6 @@ stages:
               CleanTargetFolder: true
               flattenFolders: true
           
-          # Publish artifacts
           - task: PublishPipelineArtifact@1
             displayName: 'Publish Build Artifacts'
             inputs:
@@ -127,20 +113,17 @@ stages:
       - job: DeployJob
         displayName: 'CloudHub 2.0 Deployment'
         steps:
-          # Download Maven settings.xml
           - task: DownloadSecureFile@1
             name: mavenSettings
             displayName: 'Download Maven Settings'
             inputs:
               secureFile: 'settings.xml'
           
-          # Install Maven settings
           - script: |
               mkdir -p ~/.m2
               cp $(mavenSettings.secureFilePath) ~/.m2/settings.xml
             displayName: 'Install Maven Settings'
           
-          # Setup Java 17
           - task: JavaToolInstaller@0
             displayName: 'Setup Java 17'
             inputs:
@@ -148,14 +131,13 @@ stages:
               jdkArchitectureOption: 'x64'
               jdkSourceOption: 'PreInstalled'
           
-          # Download build artifacts
           - task: DownloadPipelineArtifact@2
             displayName: 'Download Build Artifacts'
             inputs:
               artifactName: 'mule-app'
               targetPath: $(System.DefaultWorkingDirectory)/target
           
-          # Deploy to CloudHub 2.0 via Maven
+          # ✅ FIXED: Use mule-maven-plugin:deploy directly instead of mvn deploy
           - script: |
               echo "=========================================="
               echo " CloudHub 2.0 Deployment"
@@ -183,9 +165,11 @@ stages:
               echo "🚀 Starting deployment to CloudHub 2.0..."
               echo ""
               
-              # Deploy using Maven plugin
-              mvn deploy \
+              # ✅ CRITICAL FIX: Use mule-maven-plugin:deploy goal directly
+              # This skips the maven-deploy-plugin that tries to publish to Exchange
+              mvn mule:deploy \
                 -DskipTests \
+                -Dmaven.deploy.skip=true \
                 -Dconnectedapp.clientid=$(anypointClientId) \
                 -Dconnectedapp.clientsecret=$(anypointClientSecret) \
                 -Danypoint.orgid=$(muleOrgId) \
@@ -209,13 +193,9 @@ stages:
                 echo "Application: $(APP_NAME)"
                 echo "Environment: $(CH2_ENVIRONMENT)"
                 echo "Target: $(CH2_TARGET)"
-                echo "Organization: $(muleOrg)"
                 echo ""
-                echo "🌐 Access your application:"
-                echo "   Runtime Manager: https://anypoint.mulesoft.com/cloudhub"
-                echo ""
-                echo "📝 Note: CloudHub 2.0 apps are accessible via private space"
-                echo "   Check Runtime Manager for application endpoints"
+                echo "🌐 Check status in Runtime Manager:"
+                echo "   https://anypoint.mulesoft.com/cloudhub"
                 echo ""
               else
                 echo "=========================================="
@@ -225,13 +205,10 @@ stages:
                 echo "Exit Code: $DEPLOY_EXIT_CODE"
                 echo ""
                 echo "💡 Troubleshooting:"
-                echo "1. Verify Connected App has CloudHub 2.0 permissions:"
-                echo "   - Runtime Manager > Manage Applications"
-                echo "   - Runtime Manager > Deploy Applications"
-                echo "2. Check environment name: $(CH2_ENVIRONMENT)"
+                echo "1. Verify Connected App permissions"
+                echo "2. Check environment exists: $(CH2_ENVIRONMENT)"
                 echo "3. Verify target exists: $(CH2_TARGET)"
-                echo "4. Ensure organization ID is correct: $(muleOrgId)"
-                echo "5. Check if app name is unique in environment"
+                echo "4. Ensure org ID is correct: $(muleOrgId)"
                 echo ""
                 exit 1
               fi
