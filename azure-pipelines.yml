@@ -138,6 +138,7 @@ stages:
               
               if [ $? -eq 0 ]; then
                 echo "✅ Anypoint CLI installed successfully"
+                
               else
                 echo "❌ Failed to install Anypoint CLI"
                 exit 1
@@ -169,15 +170,24 @@ stages:
               echo "📦 File Size: $(du -h "$JAR_FILE" | cut -f1)"
               echo ""
               
-              # Set credentials as environment variables
-              export ANYPOINT_CLIENT_ID="$(anypointClientId)"
-              export ANYPOINT_CLIENT_SECRET="$(anypointClientSecret)"
-              export ANYPOINT_ORG="$(muleOrgId)"
+              # ✅ AUTHENTICATE FIRST - This is the fix!
+              echo "🔐 Authenticating with Anypoint Platform..."
+              anypoint-cli conf client_id "$(anypointClientId)"
+              anypoint-cli conf client_secret "$(anypointClientSecret)"
+              anypoint-cli conf organization "$(muleOrgId)"
               
+              if [ $? -eq 0 ]; then
+                echo "✅ Authentication successful"
+              else
+                echo "❌ Authentication failed"
+                exit 1
+              fi
+              
+              echo ""
               echo "🚀 Starting deployment to CloudHub 1.0..."
               echo ""
               
-              # ✅ FIXED: Changed --target to --region with proper region format
+              # Deploy with authenticated CLI
               anypoint-cli runtime-mgr cloudhub-application deploy \
                 $(APP_NAME) \
                 "$JAR_FILE" \
