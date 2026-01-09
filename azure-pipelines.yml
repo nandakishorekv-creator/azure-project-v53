@@ -13,7 +13,7 @@ variables:
   - name: RUNTIME_VERSION
     value: '4.9.0'
   - name: CH2_TARGET
-    value: 'njcAssetPvtSpace'  # ⚠️ REPLACE with your Private Space name
+    value: 'njcAssetPvtSpace'
   - name: CH2_ENVIRONMENT
     value: 'dev'
   - name: CH2_REPLICAS
@@ -23,25 +23,28 @@ variables:
 
 stages:
   #####################################################
-  # BUILD STAGE
+  # BUILD & PUBLISH TO EXCHANGE (Combined)
   #####################################################
-  - stage: Build
-    displayName: 'Build Mule Application'
+  - stage: BuildAndPublish
+    displayName: 'Build & Publish to Exchange'
     jobs:
-      - job: BuildJob
-        displayName: 'Maven Build'
+      - job: BuildPublishJob
+        displayName: 'Maven Build & Exchange Publish'
         steps:
+          # Download Maven settings
           - task: DownloadSecureFile@1
             name: mavenSettings
             displayName: 'Download Maven Settings'
             inputs:
               secureFile: 'settings.xml'
           
+          # Install Maven settings
           - script: |
               mkdir -p ~/.m2
               cp $(mavenSettings.secureFilePath) ~/.m2/settings.xml
             displayName: 'Install Maven Settings'
           
+          # Setup Java 17
           - task: JavaToolInstaller@0
             displayName: 'Setup Java 17'
             inputs:
@@ -49,50 +52,67 @@ stages:
               jdkArchitectureOption: 'x64'
               jdkSourceOption: 'PreInstalled'
           
+          # Build and Deploy to Exchange in one command
           - script: |
               echo "=========================================="
-              echo " Building Mule Application"
+              echo " Building & Publishing to Exchange"
               echo "=========================================="
               echo "Project: $(APP_NAME)"
               echo "Runtime: $(RUNTIME_VERSION)"
+              echo "Organization: $(muleOrgId)"
               echo ""
               
-              mvn clean package \
+              # Set Exchange credentials as environment variables
+              export ANYPOINT_CLIENT_ID="$(anypointClientId)"
+              export ANYPOINT_CLIENT_SECRET="$(anypointClientSecret)"
+              
+              # Build and deploy to Exchange
+              mvn clean deploy \
                 -DskipTests \
-                -Dsecure.key=mule \
+                -DskipMuleDeploy=true \
                 -Dmule.env=dev \
+                -Dsecure.key=mule \
                 -s ~/.m2/settings.xml
               
               if [ $? -eq 0 ]; then
                 echo ""
-                echo "✅ BUILD SUCCESSFUL"
+                echo "=========================================="
+                echo " ✅ BUILT & PUBLISHED TO EXCHANGE"
+                echo "=========================================="
                 echo ""
-                ls -lh target/*.jar
+                echo "View in Exchange:"
+                echo "https://anypoint.mulesoft.com/exchange/"
+                echo ""
               else
-                echo "❌ BUILD FAILED"
+                echo ""
+                echo "❌ BUILD OR PUBLISH FAILED"
                 exit 1
               fi
-            displayName: 'Maven Package'
+            displayName: 'Build & Publish to Exchange'
+            env:
+              anypointClientId: $(anypointClientId)
+              anypointClientSecret: $(anypointClientSecret)
           
-          # Publish entire project (JAR + POM)
+          # Publish artifacts for deployment stage
           - task: PublishPipelineArtifact@1
-            displayName: 'Publish Build Artifacts'
+            displayName: 'Publish Project Artifacts'
             inputs:
               targetPath: $(System.DefaultWorkingDirectory)
               artifact: 'mule-project'
               publishLocation: 'pipeline'
 
   #####################################################
-  # PUBLISH TO EXCHANGE STAGE
+  # DEPLOY TO CLOUDHUB 2.0
   #####################################################
-  - stage: PublishExchange
-    displayName: 'Publish to Anypoint Exchange'
-    dependsOn: Build
-    condition: succeeded()
+  - stage: Deploy
+    displayName: 'Deploy to CloudHub 2.0'
+    dependsOn: BuildAndPublish
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
     jobs:
-      - job: PublishJob
-        displayName: 'Exchange Publication'
+      - job: DeployJob
+        displayName: 'CloudHub 2.0 Deployment'
         steps:
+          # Download Maven settings
           - task: DownloadSecureFile@1
             name: mavenSettings
             inputs:
@@ -103,6 +123,7 @@ stages:
               cp $(mavenSettings.secureFilePath) ~/.m2/settings.xml
             displayName: 'Install Maven Settings'
           
+          # Setup Java 17
           - task: JavaToolInstaller@0
             displayName: 'Setup Java 17'
             inputs:
@@ -110,123 +131,14 @@ stages:
               jdkArchitectureOption: 'x64'
               jdkSourceOption: 'PreInstalled'
           
+          # Download artifacts from build stage
           - task: DownloadPipelineArtifact@2
             displayName: 'Download Build Artifacts'
             inputs:
               artifactName: 'mule-project'
               targetPath: $(System.DefaultWorkingDirectory)
           
-          # Publish JAR to Exchange using deploy-file
-          - script: |
-              echo "=========================================="
-              echo " Publishing to Anypoint Exchange"
-              echo "=========================================="
-              
-              # Find the built JAR
-              JAR_FILE=$(find target -name "*-mule-application.jar" -type f | head -1)
-              
-              if [ -z "$JAR_FILE" ]; then
-                echo "❌ Mule application JAR not found!"
-                echo "Files in target:"
-                ls -la target/
-                exit 1
-              fi
-              
-              echo "📦 JAR File: $JAR_FILE"
-              echo "📦 File Size: $(du -h "$JAR_FILE" | cut -f1)"
-              echo ""
-              
-              # Extract coordinates from POM
-              GROUP_ID=$(grep -m1 '<groupId>' pom.xml | sed 's/.*<groupId>\(.*\)<\/groupId>.*/\1/' | tr -d '[:space:]')
-              ARTIFACT_ID=$(grep -m1 '<artifactId>' pom.xml | sed 's/.*<artifactId>\(.*\)<\/artifactId>.*/\1/' | tr -d '[:space:]')
-              VERSION=$(grep -m1 '<version>' pom.xml | sed 's/.*<version>\(.*\)<\/version>.*/\1/' | tr -d '[:space:]')
-              
-              echo "Exchange Coordinates:"
-              echo "  Group ID: $GROUP_ID"
-              echo "  Artifact ID: $ARTIFACT_ID"
-              echo "  Version: $VERSION"
-              echo ""
-              
-              if [ -z "$GROUP_ID" ] || [ -z "$ARTIFACT_ID" ] || [ -z "$VERSION" ]; then
-                echo "❌ Failed to extract coordinates from POM"
-                exit 1
-              fi
-              
-              # Set Exchange credentials
-              export ANYPOINT_CLIENT_ID="$(anypointClientId)"
-              export ANYPOINT_CLIENT_SECRET="$(anypointClientSecret)"
-              
-              echo "🚀 Publishing to Exchange..."
-              echo ""
-              
-              # Deploy JAR file directly to Exchange
-              mvn deploy:deploy-file \
-                -DgroupId="$GROUP_ID" \
-                -DartifactId="$ARTIFACT_ID" \
-                -Dversion="$VERSION" \
-                -Dpackaging=jar \
-                -Dclassifier=mule-application \
-                -Dfile="$JAR_FILE" \
-                -DrepositoryId=anypoint-exchange-v3 \
-                -Durl=https://maven.anypoint.mulesoft.com/api/v3/organizations/$GROUP_ID/maven \
-                -DgeneratePom=false \
-                -DpomFile=pom.xml \
-                -s ~/.m2/settings.xml
-              
-              if [ $? -eq 0 ]; then
-                echo ""
-                echo "=========================================="
-                echo " ✅ PUBLISHED TO EXCHANGE"
-                echo "=========================================="
-                echo ""
-                echo "Asset: $GROUP_ID:$ARTIFACT_ID:$VERSION:mule-application"
-                echo ""
-                echo "🌐 View in Exchange:"
-                echo "   https://anypoint.mulesoft.com/exchange/assets/$GROUP_ID/$ARTIFACT_ID/"
-                echo ""
-              else
-                echo ""
-                echo "❌ EXCHANGE PUBLISH FAILED"
-                exit 1
-              fi
-            displayName: 'Publish to Exchange'
-            env:
-              anypointClientId: $(anypointClientId)
-              anypointClientSecret: $(anypointClientSecret)
-
-  #####################################################
-  # DEPLOY TO CLOUDHUB 2.0 STAGE
-  #####################################################
-  - stage: Deploy
-    displayName: 'Deploy to CloudHub 2.0'
-    dependsOn: PublishExchange
-    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
-    jobs:
-      - job: DeployJob
-        displayName: 'CloudHub 2.0 Deployment'
-        steps:
-          - task: DownloadSecureFile@1
-            name: mavenSettings
-            inputs:
-              secureFile: 'settings.xml'
-          
-          - script: |
-              mkdir -p ~/.m2
-              cp $(mavenSettings.secureFilePath) ~/.m2/settings.xml
-            displayName: 'Install Maven Settings'
-          
-          - task: JavaToolInstaller@0
-            displayName: 'Setup Java 17'
-            inputs:
-              versionSpec: '17'
-              jdkArchitectureOption: 'x64'
-              jdkSourceOption: 'PreInstalled'
-          
-          - task: DownloadPipelineArtifact@2
-            inputs:
-              artifactName: 'mule-project'
-              targetPath: $(System.DefaultWorkingDirectory)
-          
+          # Deploy to CloudHub 2.0
           - script: |
               echo "=========================================="
               echo " CloudHub 2.0 Deployment"
@@ -237,6 +149,7 @@ stages:
               echo "Runtime: $(RUNTIME_VERSION)"
               echo "Replicas: $(CH2_REPLICAS)"
               echo "vCores: $(CH2_VCORES)"
+              echo "Organization: $(muleOrgId)"
               echo ""
               
               echo "🚀 Deploying to CloudHub 2.0..."
@@ -267,16 +180,27 @@ stages:
                 echo "🌐 Check Runtime Manager:"
                 echo "   https://anypoint.mulesoft.com/cloudhub"
                 echo ""
+                echo "📝 Note: CloudHub 2.0 apps run in Private Spaces"
+                echo "   Check Runtime Manager for application endpoints"
+                echo ""
               else
                 echo ""
                 echo "=========================================="
                 echo " ❌ DEPLOYMENT FAILED"
                 echo "=========================================="
                 echo ""
-                echo "💡 Troubleshooting:"
-                echo "1. Verify Private Space '$(CH2_TARGET)' exists"
-                echo "2. Check environment '$(CH2_ENVIRONMENT)' is correct"
-                echo "3. Ensure Exchange asset was published successfully"
+                echo "💡 Common Issues:"
+                echo "1. Private Space '$(CH2_TARGET)' doesn't exist"
+                echo "   → Create it in Runtime Manager > Private Spaces"
+                echo ""
+                echo "2. Environment '$(CH2_ENVIRONMENT)' is incorrect"
+                echo "   → Check Access Management > Environments"
+                echo ""
+                echo "3. Exchange asset not found"
+                echo "   → Verify Stage 1 completed successfully"
+                echo ""
+                echo "4. Insufficient permissions"
+                echo "   → Connected App needs CloudHub 2.0 permissions"
                 echo ""
                 exit 1
               fi
