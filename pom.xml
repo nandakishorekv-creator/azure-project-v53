@@ -4,6 +4,7 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
   
+  <!-- ✅ Keep org UUID as groupId for CloudHub 2.0 -->
   <groupId>733454d8-fc11-49e1-bd8d-3ec9a12baa26</groupId>
   <artifactId>azure-project-v53</artifactId>
   <version>1.0.0-SNAPSHOT</version>
@@ -48,7 +49,6 @@
             <replicas>${cloudhub2.replicas}</replicas>
             <vCores>${cloudhub2.vcores}</vCores>
             <deploymentTimeout>600000</deploymentTimeout>
-            <server>anypoint-exchange</server>
             <properties>
               <mule.env>dev</mule.env>
               <secure.key>mule</secure.key>
@@ -62,6 +62,33 @@
             </integrations>
           </cloudhub2Deployment>
         </configuration>
+      </plugin>
+      
+      <!-- ✅ CRITICAL: Disable default Maven deploy plugin -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-deploy-plugin</artifactId>
+        <version>3.1.1</version>
+        <configuration>
+          <skip>true</skip>
+        </configuration>
+      </plugin>
+      
+      <!-- ✅ Disable Exchange plugin -->
+      <plugin>
+        <groupId>org.mule.tools.maven</groupId>
+        <artifactId>exchange-mule-maven-plugin</artifactId>
+        <version>0.1.4</version>
+        <executions>
+          <execution>
+            <id>default-exchange-pre-deploy</id>
+            <phase>none</phase>
+          </execution>
+          <execution>
+            <id>default-exchange-deploy</id>
+            <phase>none</phase>
+          </execution>
+        </executions>
       </plugin>
     </plugins>
   </build>
@@ -114,12 +141,5 @@
     </pluginRepository>
   </pluginRepositories>
   
-  <distributionManagement>
-    <repository>
-      <id>anypoint-exchange</id>
-      <name>Anypoint Exchange</name>
-      <url>https://maven.anypoint.mulesoft.com/api/v3/organizations/${anypoint.orgid}/maven</url>
-      <layout>default</layout>
-    </repository>
-  </distributionManagement>
+  <!-- ✅ REMOVED: distributionManagement section - not needed for CloudHub 2.0 -->
 </project>
