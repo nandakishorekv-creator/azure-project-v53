@@ -9,7 +9,10 @@
   <artifactId>azure-project-v53</artifactId>
   <version>1.0.0</version>
   <packaging>mule-application</packaging>
-  <name>azure-project-v53</name>
+  
+  <!-- ✅ REQUIRED: Exchange Metadata (fixes 412 error) -->
+  <name>Azure Project v53</name>
+  <description>Mule application deployed via Azure DevOps pipeline to CloudHub 2.0 Private Space</description>
   
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -17,9 +20,12 @@
     <app.runtime>4.9.0</app.runtime>
     <mule.maven.plugin.version>4.6.0</mule.maven.plugin.version>
     
+    <!-- ✅ REQUIRED: Exchange asset type -->
+    <type>app</type>
+    
     <!-- CloudHub 2.0 Deployment Properties -->
-    <cloudhub2.target>azure-test</cloudhub2.target>
-    <cloudhub2.environment>Sandbox</cloudhub2.environment>
+    <cloudhub2.target>njcAssetPvtSpace</cloudhub2.target>
+    <cloudhub2.environment>dev</cloudhub2.environment>
     <cloudhub2.replicas>1</cloudhub2.replicas>
     <cloudhub2.vcores>0.1</cloudhub2.vcores>
     <cloudhub2.applicationName>${project.artifactId}</cloudhub2.applicationName>
@@ -27,6 +33,7 @@
   
   <build>
     <plugins>
+      <!-- Mule Maven Plugin for building and deployment -->
       <plugin>
         <groupId>org.mule.tools.maven</groupId>
         <artifactId>mule-maven-plugin</artifactId>
@@ -63,6 +70,29 @@
             </integrations>
           </cloudhub2Deployment>
         </configuration>
+      </plugin>
+      
+      <!-- ✅ CRITICAL: Exchange Maven Plugin (fixes 412 error) -->
+      <plugin>
+        <groupId>org.mule.tools.maven</groupId>
+        <artifactId>exchange-mule-maven-plugin</artifactId>
+        <version>0.1.4</version>
+        <executions>
+          <execution>
+            <id>validate</id>
+            <phase>validate</phase>
+            <goals>
+              <goal>exchange-pre-deploy</goal>
+            </goals>
+          </execution>
+          <execution>
+            <id>deploy</id>
+            <phase>deploy</phase>
+            <goals>
+              <goal>exchange-deploy</goal>
+            </goals>
+          </execution>
+        </executions>
       </plugin>
     </plugins>
   </build>
