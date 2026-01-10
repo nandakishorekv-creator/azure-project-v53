@@ -4,13 +4,11 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
   
-  <!-- Use your Organization ID as groupId for Exchange -->
   <groupId>733454d8-fc11-49e1-bd8d-3ec9a12baa26</groupId>
-  <artifactId>azure-project-v53-jar</artifactId>
+  <artifactId>azure-project-v53-jars</artifactId>
   <version>1.0.0-SNAPSHOT</version>
   <packaging>mule-application</packaging>
   
-  <!-- ✅ REQUIRED: Exchange Metadata (fixes 412 error) -->
   <name>Azure Project v53</name>
   <description>Mule application deployed via Azure DevOps pipeline to CloudHub 2.0 Private Space</description>
   
@@ -19,9 +17,6 @@
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     <app.runtime>4.9.0</app.runtime>
     <mule.maven.plugin.version>4.6.0</mule.maven.plugin.version>
-    
-    <!-- ✅ REQUIRED: Exchange asset type -->
-  
     
     <!-- CloudHub 2.0 Deployment Properties -->
     <cloudhub2.target>njcAssetPvtSpace</cloudhub2.target>
@@ -33,7 +28,6 @@
   
   <build>
     <plugins>
-      <!-- Mule Maven Plugin for building and deployment -->
       <plugin>
         <groupId>org.mule.tools.maven</groupId>
         <artifactId>mule-maven-plugin</artifactId>
@@ -42,7 +36,6 @@
         <configuration>
           <classifier>mule-application</classifier>
           
-          <!-- CloudHub 2.0 Deployment Configuration -->
           <cloudhub2Deployment>
             <uri>https://anypoint.mulesoft.com</uri>
             <provider>MC</provider>
@@ -72,19 +65,12 @@
         </configuration>
       </plugin>
       
-      <!-- ✅ CRITICAL: Exchange Maven Plugin (fixes 412 error) -->
+      <!-- ✅ FIXED: Single execution only -->
       <plugin>
         <groupId>org.mule.tools.maven</groupId>
         <artifactId>exchange-mule-maven-plugin</artifactId>
         <version>0.1.4</version>
         <executions>
-          <execution>
-            <id>validate</id>
-            <phase>validate</phase>
-            <goals>
-              <goal>exchange-pre-deploy</goal>
-            </goals>
-          </execution>
           <execution>
             <id>deploy</id>
             <phase>deploy</phase>
@@ -148,7 +134,6 @@
     </pluginRepository>
   </pluginRepositories>
   
-  <!-- Distribution Management for Exchange -->
   <distributionManagement>
     <repository>
       <id>anypoint-exchange-v3</id>
