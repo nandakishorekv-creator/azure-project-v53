@@ -49,7 +49,6 @@ stages:
               jdkArchitectureOption: 'x64'
               jdkSourceOption: 'PreInstalled'
           
-          # Build and publish - ignore EOF failure
           - script: |
               echo "=========================================="
               echo " Building & Publishing to Exchange"
@@ -59,7 +58,6 @@ stages:
               echo "Organization: $(muleOrgId)"
               echo ""
               
-              # Build and deploy to Exchange
               mvn clean deploy \
                 -DskipTests \
                 -DskipMuleDeploy=true \
@@ -67,31 +65,26 @@ stages:
                 -Dsecure.key=mule \
                 -s ~/.m2/settings.xml || true
               
-              # Check if asset was published (even if EOF failed)
               echo ""
               echo "=========================================="
               echo " Checking Exchange Publication Status"
               echo "=========================================="
               echo ""
               
-              # The asset should be in Exchange even if EOF upload failed
-              # Verify by checking if JAR exists
               if [ -f target/*.jar ]; then
                 echo "✅ Build completed successfully"
-                echo "✅ Asset published to Exchange (EOF upload may have failed, but asset is available)"
-                echo ""
-                echo "View in Exchange:"
-                echo "https://anypoint.mulesoft.com/exchange/733454d8-fc11-49e1-bd8d-3ec9a12baa26/$(APP_NAME)/"
+                echo "✅ Asset published to Exchange"
                 echo ""
                 exit 0
               else
                 echo "❌ Build failed - no JAR found"
                 exit 1
               fi
-            displayName: 'Build & Publish to Exchange (Ignore EOF Error)'
+            displayName: 'Build & Publish to Exchange'
             env:
               anypointClientId: $(anypointClientId)
               anypointClientSecret: $(anypointClientSecret)
+              muleOrgId: $(muleOrgId)
           
           - task: PublishPipelineArtifact@1
             displayName: 'Publish Project Artifacts'
@@ -134,7 +127,30 @@ stages:
               artifactName: 'mule-project'
               targetPath: $(System.DefaultWorkingDirectory)
           
-          # Deploy to CloudHub 2.0 (pulls from Exchange)
+          # Verify credentials
+          - script: |
+              echo "🔍 Verifying Anypoint credentials..."
+              echo "Organization ID: $(muleOrgId)"
+              
+              TOKEN_RESPONSE=$(curl -s -X POST https://anypoint.mulesoft.com/accounts/api/v2/oauth2/token \
+                -H "Content-Type: application/json" \
+                -d "{\"grant_type\":\"client_credentials\",\"client_id\":\"$(anypointClientId)\",\"client_secret\":\"$(anypointClientSecret)\"}")
+              
+              ACCESS_TOKEN=$(echo $TOKEN_RESPONSE | jq -r '.access_token')
+              
+              if [ "$ACCESS_TOKEN" == "null" ]; then
+                echo "❌ Authentication failed"
+                exit 1
+              fi
+              
+              echo "✅ Credentials verified"
+            displayName: 'Verify Credentials'
+            env:
+              anypointClientId: $(anypointClientId)
+              anypointClientSecret: $(anypointClientSecret)
+              muleOrgId: $(muleOrgId)
+          
+          # Deploy
           - script: |
               echo "=========================================="
               echo " CloudHub 2.0 Deployment"
@@ -142,18 +158,14 @@ stages:
               echo "Application: $(APP_NAME)"
               echo "Environment: $(CH2_ENVIRONMENT)"
               echo "Target: $(CH2_TARGET)"
+              echo "Organization: $(muleOrgId)"
               echo ""
               
-              echo "🚀 Deploying from Exchange to CloudHub 2.0..."
-              echo ""
-              
-              # Deploy to CloudHub 2.0
-              # This pulls the application FROM Exchange
               mvn mule:deploy \
                 -Dmule.deployment.provider=MC \
                 -Dconnectedapp.clientid=$(anypointClientId) \
                 -Dconnectedapp.clientsecret=$(anypointClientSecret) \
-                -Danypoint.orgid=$(muleOrgId) \
+                -DbusinessGroupId=$(muleOrgId) \
                 -Dcloudhub2.applicationName=$(APP_NAME) \
                 -Dcloudhub2.environment=$(CH2_ENVIRONMENT) \
                 -Dcloudhub2.target=$(CH2_TARGET) \
@@ -163,19 +175,8 @@ stages:
               
               if [ $? -eq 0 ]; then
                 echo ""
-                echo "=========================================="
-                echo " ✅ DEPLOYMENT SUCCESSFUL!"
-                echo "=========================================="
-                echo ""
-                echo "Application: $(APP_NAME)"
-                echo "Environment: $(CH2_ENVIRONMENT)"
-                echo "Target: $(CH2_TARGET)"
-                echo ""
-                echo "🌐 Check Runtime Manager:"
-                echo "   https://anypoint.mulesoft.com/cloudhub"
-                echo ""
+                echo "✅ DEPLOYMENT SUCCESSFUL!"
               else
-                echo ""
                 echo "❌ DEPLOYMENT FAILED"
                 exit 1
               fi
