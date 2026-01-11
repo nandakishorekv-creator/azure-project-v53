@@ -53,6 +53,7 @@
             <properties>
               <mule.env>dev</mule.env>
               <secure.key>mule</secure.key>
+                  <encryption.key>mule</encryption.key>
             </properties>
             <integrations>
               <services>
