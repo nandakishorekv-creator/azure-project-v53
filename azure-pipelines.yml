@@ -13,9 +13,9 @@ variables:
   - name: RUNTIME_VERSION
     value: '4.9.0'
   - name: CH2_TARGET
-    value: 'azure-test'
+    value: 'njcAssetPvtSpace'
   - name: CH2_ENVIRONMENT
-    value: 'Sandbox'
+    value: 'dev'
   - name: CH2_REPLICAS
     value: '1'
   - name: CH2_VCORES
