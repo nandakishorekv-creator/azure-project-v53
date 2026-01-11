@@ -49,7 +49,7 @@
             <muleVersion>${app.runtime}</muleVersion>
             <replicas>${cloudhub2.replicas}</replicas>
             <vCores>${cloudhub2.vcores}</vCores>
-            <deploymentTimeout>600000</deploymentTimeout>
+             <deploymentTimeout>1200000</deploymentTimeout>
             <properties>
               <mule.env>dev</mule.env>
               <secure.key>mule</secure.key>
