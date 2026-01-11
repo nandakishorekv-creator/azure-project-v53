@@ -9,3 +9,5 @@ tls:
     alias: ""
 salesforce:
   url: ""
+encryption:
+  key: ""
