@@ -171,6 +171,7 @@ stages:
                 -Dcloudhub2.target=$(CH2_TARGET) \
                 -Dcloudhub2.replicas=$(CH2_REPLICAS) \
                 -Dcloudhub2.vcores=$(CH2_VCORES) \
+                -Dcloudhub2.deploymentTimeout=1200000 \
                 -s ~/.m2/settings.xml
               
               if [ $? -eq 0 ]; then
