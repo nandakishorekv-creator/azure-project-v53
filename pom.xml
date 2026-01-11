@@ -4,7 +4,7 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
   
-  <groupId>733454d8-fc11-49e1-bd8d-3ec9a12baa26</groupId>
+  <groupId>aceb673b-30f8-4591-982c-8ed2cd883a70</groupId>
   <artifactId>azure-project-v53-poc</artifactId>
   <version>1.0.0-SNAPSHOT</version>
   <packaging>mule-application</packaging>
